@@ -1,6 +1,5 @@
 (function ($) {
 	AblePlayer.prototype.initSignLanguage = function() {
-
 		// Sign language is only currently supported in HTML5 player and YouTube.
 		var hasLocalSrc = ( this.$media.data('sign-src') !== undefined && this.$media.data('sign-src') !== "" );
 		var hasRemoteSrc = ( this.$media.data('youtube-sign-src') !== undefined && this.$media.data('youtube-sign-src') !== "" );
@@ -9,15 +8,15 @@
 			if ( hasRemoteSrc ) {
 				this.signYoutubeId = this.youTubeSignId;
 			}
-			this.injectSignPlayerCode();
-			return;
 		}
-		if (this.player === 'html5') {
+		if (this.player === 'html5' || this.player === 'youtube' ) {
 			// check to see if there's a sign language video accompanying this video
 			// check only the first source
 			// If sign language is provided, it must be provided for all sources
 			this.signYoutubeId = this.youTubeSignId ?? DOMPurify.sanitize( this.$sources.first().attr('data-youtube-sign-src') );
-			this.signFile = DOMPurify.sanitize( this.$sources.first().attr('data-sign-src') );
+			let signSrc = DOMPurify.sanitize( this.$sources.first().attr('data-sign-src') );
+			let signVideo = DOMPurify.sanitize( this.$media.data('youtube-sign-src') );
+			this.signFile = ( signVideo ) ? signVideo : signSrc;
 			if (this.signFile || this.signYoutubeId) {
 				if (this.isIOS()) {
 					// iOS does not allow multiple videos to play simultaneously
