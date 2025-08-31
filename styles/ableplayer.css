@@ -469,7 +469,7 @@ div.able-captions {
 	line-height: 1.4;
 	/* settings that are overridden by user prefs */
 	background-color: var(--able-default-caption-background);
-	font-size: 1em;
+	font-size: 1rem;
 	color: var(--able-default-caption-color);
 	opacity: 0.75;
 }
@@ -482,7 +482,7 @@ div.able-vidcap-container div.able-captions-overlay {
 
 div.able-vidcap-container div.able-captions-below {
 	position: relative;
-	min-height: 3.2em;
+	min-height: 4rem;
 }
 
 div.able-audcap-container.captions-off {
@@ -493,7 +493,7 @@ div.able-descriptions {
 	position: relative;
 	color: var(--able-default-description-color); /* yellow, to differentiate it from captions */
 	background-color: var(--able-default-description-background);
-	min-height: 3.2em;
+	min-height: 4rem;
 	border-top: 1px solid var(--able-description-border);
 	margin: 0;
 	padding: 12px;
@@ -505,7 +505,7 @@ div.able-now-playing {
 	text-align: center;
 	font-weight: bold;
 	font-size: 1rem;
-	padding: 0.5em 0.5em 1em;
+	padding: 0.5rem 0.5rem 1rem;
 	color: var(--able-now-playing-color);
 	background: var(--able-now-playing-background);
 }
@@ -590,17 +590,17 @@ div.able-modal-dialog h1 {
 
 .able-prefs-form h2 {
 	font-weight: bold;
-	font-size: 1.1em;
+	font-size: 1.1rem;
 }
 
 .able-desc-pref-prompt {
 	font-weight: bold;
 	font-style: italic;
-	margin-left: 1em !important;
+	margin-left: 1rem !important;
 }
 
 .able-prefDescFormat > div {
-	margin-left: 1.5em;
+	margin-left: 1.5rem;
 }
 
 .able-prefs-descriptions > div,
@@ -623,20 +623,20 @@ div.able-modal-dialog h1 {
 
 .able-prefs-descriptions select,
 .able-prefs-captions select {
-	width: 10em;
+	width: 10rem;
 }
 
 div.able-prefDescPause {
-	margin-top: 1em;
+	margin-top: 1rem;
 }
 
 .able-prefs-form div.able-captions-sample {
-	padding: 0.5em;
+	padding: 0.5rem;
 	text-align: center;
 }
 
 .able-prefs-form div.able-desc-sample {
-	padding: 0.5em;
+	padding: 0.5rem;
 	text-align: center;
 	color: #fff;
 	background-color: #000;
@@ -644,8 +644,8 @@ div.able-prefDescPause {
 
 .able-prefs-form h2 {
 	margin-top: 0;
-	margin-bottom: 0.5em;
-	font-size: 1.1em;
+	margin-bottom: 0.5rem;
+	font-size: 1.1rem;
 }
 
 .able-prefs-form ul {
@@ -667,16 +667,16 @@ span.able-modkey-shift {
 span.able-modkey {
 	font-weight: bold;
 	color: #000;
-	font-size: 1.1em;
+	font-size: 1.1rem;
 }
 
 /* Resize Window Dialog */
 .able-resize-form h1 {
-	font-size: 1.15em;
+	font-size: 1.15rem;
 }
 
 .able-resize-form div div {
-	margin: 1em 0;
+	margin: 1rem 0;
 }
 
 .able-resize-form label {
@@ -946,7 +946,7 @@ ul.able-popup li.able-focus,
 }
 
 .able-transcript div {
-	margin: 1em 0;
+	margin: 1rem 0;
 }
 
 .able-transcript-heading {
@@ -981,7 +981,7 @@ ul.able-popup li.able-focus,
 .able-highlight span:active {
 	background-color: var(--able-cue-highlighted-background) !important;
 	color: var(--able-cue-highlighted-color) !important;
-	padding: 0.25em 0.10em;
+	padding: 0.25rem 0.10rem;
 	border: none;
 	outline: none;
 }
@@ -1178,7 +1178,7 @@ button.able-search-results-time {
 
 /* Video Transcript Sorter (VTS) */
 #able-vts-instructions {
-	padding: 1em;
+	padding: 1rem;
 	border: 1px solid #999;
 	width: 100%;
 	margin: 0 auto 1.5rem;
@@ -1276,16 +1276,16 @@ div#able-vts-alert {
 	left: 5px;
 	border: 2px solid #666;
 	background-color: #ffc;
-	padding: 1em;
+	padding: 1rem;
 	font-weight: bold;
 	z-index: 9400;
 }
 
 button#able-vts-save {
-	font-size: 1em;
+	font-size: 1rem;
 	padding: 6px 12px;
 	border-radius: 4px;
-	margin-bottom: 1em;
+	margin-bottom: 1rem;
 	font-weight: bold;
 }
 
@@ -1320,6 +1320,6 @@ button#able-vts-save:focus {
 		width: 100% !important;
 	}
 	div.able-captions-wrapper:not(.able-captions-overlay) {
-		min-height: 5em;
+		min-height: 5rem;
 	}
 }
