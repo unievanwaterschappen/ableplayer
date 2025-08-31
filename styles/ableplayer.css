@@ -42,6 +42,7 @@
 	--able-color: #fff;
 	--able-control-background: #000;
 	--able-control-color: #fff;
+	--able-big-play-background: #00000077;
 	--able-alert-button-color: #000;
 	--able-seekbar-border: #a8a8a8;
 	--able-seekbar-background: #000;
@@ -239,7 +240,7 @@
 .able-wrapper .able button.able-big-play-button {
 	position: absolute;
 	color: var(--able-control-color);
-	background-color: transparent;
+	background-color: var(--able-big-play-background);
 	border: none;
 	outline: none;
 	left: 0;
