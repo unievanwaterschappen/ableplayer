@@ -360,10 +360,7 @@ Setting this to "off" is useful if all videos have plenty of audio space for des
 
 ### Sign language
 
-Sign language translation is supported in a separate video player, synchronized with the main player. Tips for filming a sign language interpreter are available from [Signing Books for the Deaf][]:
-
-* [Filming the Signer][]
-* [Editing the Signer][]
+Sign language translation is supported in a separate video player, synchronized with the main player. Some tips for filming a sign language interpreter are available from [Signing Books for the Deaf][].
 
 #### Loading from local source
 
@@ -573,7 +570,6 @@ If you don’t have access to your server’s .htaccess file, you should be able
 If your site is running on a Windows server, consult the documentation from Microsoft. For example:
 
 - [Configuring MIME Types in IIS 7][]
-- [How to add MIME Types with IIS7 Web.config][]
 
 ## Keyboard Shortcuts
 
@@ -610,7 +606,7 @@ One of *Able Player’s* accessibility features is that the player is highly cus
 - Highlight transcript as video plays
 - Keyboard-enable transcript
 
-## Acknowledgments
+## Acknowledgements
 
 - Able Player development is supported in part by the [AccessComputing][] project at the University of Washington, with financial support from the National Science Foundation (grants #CNS-0540615, CNS-0837508, and CNS-1042260).
 - Additional support has been provided by the [Committee on Institutional Cooperation][] (CIC).
@@ -618,33 +614,19 @@ One of *Able Player’s* accessibility features is that the player is highly cus
 - Sample video tracks are provided courtesy of [The DO-IT Center][] at the University of Washington. Additional videos are available on the [DO-IT Video][] website, which uses Able Player.
 - Sample audio tracks feature songs by Terrill Thompson, Able Player's creator and original lead developer. Check out [Terrill's music site] for more listening, and to support his work.
 
-  [AccessComputing]: http://washington.edu/accesscomputing
-  [Committee on Institutional Cooperation]: https://www.cic.net/home
-  [Configuring MIME Types in IIS 7]: http://technet.microsoft.com/en-us/library/17bda1f4-8a0d-440f-986a-5aaa9d40b74c.aspx
-  [Editing the Signer]: http://www.sign-lang.uni-hamburg.de/signingbooks/sbrc/grid/d71/guide13.htm
-  [develop]: https://github.com/ableplayer/ableplayer/tree/develop
-  [examples]: http://ableplayer.github.io/ableplayer/demos/
-  [Filming the Signer]: http://www.sign-lang.uni-hamburg.de/signingbooks/sbrc/grid/d71/guide12.htm
-  [Flavors, by Flow Theory]: http://www.terrillthompson.com/music/2012/01/flow-theory-flavors/
-  [DO-IT Video]: http://washington.edu/doit/video
-  [Google Developer Console]: https://console.developers.google.com/
-  [Google's Getting Started page]: https://developers.google.com/api-client-library/javascript/start/start-js#Getkeysforyourapplication
-  [Grunt]: http://gruntjs.com/
-  [How to add MIME Types with IIS7 Web.config]: http://blogs.iis.net/bills/archive/2008/03/25/how-to-add-mime-types-with-iis7-web-config.aspx
+  [AccessComputing]: https://www.washington.edu/accesscomputing/
+  [Committee on Institutional Cooperation]: https://btaa.org/about/news-and-publications/news/2016/06/30/the-committee-on-institutional-cooperation-is-now-the-big-ten-academic-alliance
+  [Configuring MIME Types in IIS 7]: https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2008-R2-and-2008/cc753281(v=ws.10)
+  [examples]: https://ableplayer.github.io/ableplayer/demos/
+  [DO-IT Video]: https://doit.uw.edu/videos/
   [Icons8]: https://icons8.com
-  [issues]: https://github.com/ableplayer/ableplayer/issues
-  [jQuery]: http://jquery.com/
-  [jquery.cookie]: https://github.com/carhartl/jquery-cookie
+  [jQuery]: https://jquery.com/
   [js-cookie]: https://github.com/js-cookie/js-cookie
-  [JW Player]: http://www.jwplayer.com/
-  [Modernizr]: http://modernizr.com/
-  [npm]: https://www.npmjs.com/
-  [Signing Books for the Deaf]: http://www.sign-lang.uni-hamburg.de/signingbooks/
+  [Signing Books for the Deaf]: https://pragmaprojects.eu/signingbooks/index.php/the-project/summary
   [Terrill's music site]: https://terrillthompson.com/music
-  [The DO-IT Center]: http://washington.edu/doit
+  [The DO-IT Center]: https://doit.uw.edu/
   [Video Demo #7]: demos/video7.html
   [WebVTT validator]: https://quuz.org/webvtt/
-  [WebAIM’s 2017 Screen Reader User Survey]: https://webaim.org/projects/screenreadersurvey7/#browsers
   [WebVTT]: https://w3c.github.io/webvtt/
   [Web Speech API]: https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API
   [YouTube's Terms of Service]: https://developers.google.com/youtube/terms/required-minimum-functionality#overlays-and-frames

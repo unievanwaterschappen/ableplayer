@@ -56,3 +56,8 @@ Files created by the build process are put into the */build* directory:
 ## Code of Conduct
 
 All contributors to Able Player are expected to follow our [published Code of Conduct](https://github.com/ableplayer/ableplayer/blob/main/code-of-conduct.md).
+
+  [Grunt]: https://gruntjs.com/
+  [issues]: https://github.com/ableplayer/ableplayer/issues
+  [npm]: https://www.npmjs.com/
+  [develop]: https://github.com/ableplayer/ableplayer/tree/develop
