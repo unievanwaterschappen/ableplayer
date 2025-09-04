@@ -106,7 +106,7 @@ var postProcessing = {
     return vttContent.replace(
       /<c class="([\w\s]+)">/g,
       function (_, classNames) {
-        var classes = classNames.replace(/\./g, " ");
+        var classes = classNames.replace(/ /g, ".");
         return "<c." + classes + ">";
       }
     );
