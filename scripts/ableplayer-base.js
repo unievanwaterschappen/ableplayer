@@ -38,15 +38,16 @@
 // maintain an array of Able Player instances for use globally (e.g., for keeping prefs in sync)
 var AblePlayerInstances = [];
 
-(function ($) {
-	$(function () {
-		$('video, audio').each(function (index, element) {
-			if ($(element).data('able-player') !== undefined) {
-				AblePlayerInstances.push(new AblePlayer($(this),$(element)));
-			}
-		});
-	});
 
+$(function () {
+	$('video, audio').each(function (index, element) {
+		if ($(element).data('able-player') !== undefined && ($(element).data('autoload') === undefined || $(element).data('autoload') !== false)) {
+			AblePlayerInstances.push(new AblePlayer($(this),$(element)));
+		}
+	});
+});
+
+(function ($) {
 	// YouTube player support; pass ready event to jQuery so we can catch in player.
 	window.onYouTubeIframeAPIReady = function() {
 		AblePlayer.youTubeIframeAPIReady = true;

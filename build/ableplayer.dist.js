@@ -975,358 +975,437 @@
 
 var AblePlayerInstances = [];
 
+$(function () {
+  $("video, audio").each(function (index, element) {
+    if (
+      $(element).data("able-player") !== undefined &&
+      ($(element).data("autoload") === undefined ||
+        $(element).data("autoload") !== false)
+    ) {
+      AblePlayerInstances.push(new AblePlayer($(this), $(element)));
+    }
+  });
+});
+
 (function ($) {
-	$(function () {
-		$('video, audio').each(function (index, element) {
-			if ($(element).data('able-player') !== undefined) {
-				AblePlayerInstances.push(new AblePlayer($(this),$(element)));
-			}
-		});
-	});
-
-	window.onYouTubeIframeAPIReady = function() {
-		AblePlayer.youTubeIframeAPIReady = true;
-		$('body').trigger('youTubeIframeAPIReady', []);
-	};
-	$(window).on('keydown',function(e) {
-		if (AblePlayer.nextIndex === 1) {
-			AblePlayer.lastCreated.onPlayerKeyPress(e);
-		}
-	});
-
-	window.AblePlayer = function(media) {
-
-		var thisObj = this;
-
-		AblePlayer.lastCreated = this;
-		this.media = media;
-
-		if ($(media).length === 0) {
-			this.provideFallback();
-			return;
-		}
-
-
-		if ($(media).attr('autoplay') !== undefined) {
-			this.autoplay = true; 
-			this.okToPlay = true; 
-		} else {
-			this.autoplay = false;
-			this.okToPlay = false;
-		}
-
-		this.loop = ($(media).attr('loop') !== undefined) ? true : false;
-
-		this.playsInline = ($(media).attr('playsinline') !== undefined) ? '1' : '0';
-
-		this.hasPoster = ($(media).attr('poster')) ? true : false;
-
-		this.width = $(media).attr('width') ?? 0;
-		this.height = $(media).attr('height') ?? 0;
-
-		var startTime = $(media).data('start-time');
-		var isNumeric = ( typeof startTime === 'number' || ( typeof startTime === 'string' && value.trim() !== '' && ! isNaN(value) && isFinite( Number(value) ) ) ) ? true : false;
-		this.startTime =  ( startTime !== undefined && isNumeric ) ? startTime : 0;
-
-		this.debug = ($(media).data('debug') !== undefined && $(media).data('debug') !== false) ? true : false;
-
-		if ($(media).data('root-path') !== undefined) {
-			this.rootPath = $(media).data('root-path').replace(/\/?$/, '/');
-		} else {
-			this.rootPath = this.getRootPath();
-		}
-
-		this.defaultVolume = 7;
-		if ($(media).data('volume') !== undefined && $(media).data('volume') !== "") {
-			var volume = $(media).data('volume');
-			if (volume >= 0 && volume <= 10) {
-				this.defaultVolume = volume;
-			}
-		}
-		this.volume = this.defaultVolume;
-
-
-		if ($(media).data('use-chapters-button') !== undefined && $(media).data('use-chapters-button') === false) {
-			this.useChaptersButton = false;
-		} else {
-			this.useChaptersButton = true;
-		}
-
-		if ($(media).data('descriptions-audible') !== undefined && $(media).data('descriptions-audible') === false) {
-			this.readDescriptionsAloud = false;
-		} else if ($(media).data('description-audible') !== undefined && $(media).data('description-audible') === false) {
-			this.readDescriptionsAloud = false;
-		} else {
-			this.readDescriptionsAloud = true;
-		}
-
-		this.descVoices = [];
-
-		this.descReader = ($(media).data('desc-reader') == 'screenreader') ? 'screenreader' : 'browser';
-
-		this.defaultStateCaptions = ($(media).data('state-captions') == 'off') ? 0 : 1;
-		this.defaultStateDescriptions = ($(media).data('state-descriptions') == 'on') ? 1 : 0;
-
-		this.defaultDescPause = ($(media).data('desc-pause-default') == 'off') ? 0 : 1;
-
-		if ($(media).data('heading-level') !== undefined && $(media).data('heading-level') !== "") {
-			var headingLevel = $(media).data('heading-level');
-			if (/^[0-6]*$/.test(headingLevel)) { 
-				this.playerHeadingLevel = headingLevel;
-			}
-		}
-
-		var transcriptDivLocation = $(media).data('transcript-div');
-		if ( transcriptDivLocation !== undefined && transcriptDivLocation !== "" && null !== document.getElementById( transcriptDivLocation ) ) {
-			this.transcriptDivLocation = transcriptDivLocation;
-		} else {
-			this.transcriptDivLocation = null;
-		}
-		var includeTranscript = $(media).data('include-transcript');
-		this.hideTranscriptButton = ( includeTranscript !== undefined && includeTranscript === false) ? true : false;
-
-		this.transcriptType = null;
-		if ($(media).data('transcript-src') !== undefined) {
-			this.transcriptSrc = $(media).data('transcript-src');
-			if (this.transcriptSrcHasRequiredParts()) {
-				this.transcriptType = 'manual';
-			} else {
-
-							}
-		} else if ($(media).find('track[kind="captions"],track[kind="subtitles"],track:not([kind])').length > 0) {
-			this.transcriptType = (this.transcriptDivLocation) ? 'external' : 'popup';
-		}
-
-		this.lyricsMode = ($(media).data('lyrics-mode') !== undefined && $(media).data('lyrics-mode') !== false) ? true : false;
-
-		if ($(media).data('transcript-title') !== undefined && $(media).data('transcript-title') !== "") {
-			this.transcriptTitle = $(media).data('transcript-title');
-		}
-
-		this.defaultCaptionsPosition = ($(media).data('captions-position') === 'overlay') ? 'overlay' : 'below';
-
-		var chaptersDiv = $(media).data('chapters-div');
-		if ( chaptersDiv !== undefined && chaptersDiv !== "") {
-			this.chaptersDivLocation = chaptersDiv;
-		}
-
-		if ($(media).data('chapters-title') !== undefined) {
-			this.chaptersTitle = $(media).data('chapters-title');
-		}
-
-		var defaultChapter = $(media).data('chapters-default');
-		this.defaultChapter = ( defaultChapter !== undefined && defaultChapter !== "") ? defaultChapter : null;
-
-		this.speedIcons = ($(media).data('speed-icons') === 'arrows') ? 'arrows' : 'animals';
-
-		var seekbarScope = $(media).data('seekbar-scope');
-		this.seekbarScope = ( seekbarScope === 'chapter' || seekbarScope === 'chapters') ? 'chapter' : 'video';
-
-		var youTubeId = $(media).data('youtube-id');
-		if ( youTubeId !== undefined && youTubeId !== "") {
-			this.youTubeId = this.getYouTubeId(youTubeId);
-		}
-
-		var youTubeDescId = $(media).data('youtube-desc-id');
-		if ( youTubeDescId !== undefined && youTubeDescId !== "") {
-			this.youTubeDescId = this.getYouTubeId(youTubeDescId);
-		}
-
-		var youTubeSignId = $(media).data('youtube-sign-src');
-		if ( youTubeSignId !== undefined && youTubeSignId !== "") {
-			this.youTubeSignId = this.getYouTubeId(youTubeSignId);
-		}
-
-		var youTubeNoCookie = $(media).data('youtube-nocookie');
-		this.youTubeNoCookie = (youTubeNoCookie !== undefined && youTubeNoCookie) ? true : false;
-
-		var vimeoId = $(media).data('vimeo-id');
-		if ( vimeoId !== undefined && vimeoId !== "") {
-			this.vimeoId = this.getVimeoId(vimeoId);
-		}
-		var vimeoDescId = $(media).data('vimeo-desc-id');
-		if ( vimeoDescId !== undefined && vimeoDescId !== "") {
-			this.vimeoDescId = this.getVimeoId(vimeoDescId);
-		}
-
-		this.skin = ($(media).data('skin') == 'legacy') ? 'legacy' : '2020';
-
-		if ($(media).data('width') !== undefined) {
-			this.playerWidth = parseInt($(media).data('width'));
-		} else if ($(media)[0].getAttribute('width')) {
-			this.playerWidth = parseInt($(media)[0].getAttribute('width'));
-		} else {
-			this.playerWidth = null;
-		}
-
-		this.iconType = 'font';
-		this.forceIconType = false;
-		if ($(media).data('icon-type') !== undefined && $(media).data('icon-type') !== "") {
-			var iconType = $(media).data('icon-type');
-			if (iconType === 'font' || iconType === 'image' || iconType === 'svg') {
-				this.iconType = iconType;
-				this.forceIconType = true;
-			}
-		}
-
-		var allowFullScreen = $(media).data('allow-fullscreen');
-		this.allowFullscreen = (allowFullScreen !== undefined && allowFullScreen === false) ? false : true;
-
-		this.clickedFullscreenButton = false;
-		this.restoringAfterFullscreen = false;
-
-		this.defaultSeekInterval = 10;
-		this.useFixedSeekInterval = false; 
-		if ($(media).data('seek-interval') !== undefined && $(media).data('seek-interval') !== "") {
-			var seekInterval = $(media).data('seek-interval');
-			if (/^[1-9][0-9]*$/.test(seekInterval)) { 
-				this.seekInterval = seekInterval;
-				this.useFixedSeekInterval = true; 
-			}
-		}
-
-		var showNowPlaying = $(media).data('show-now-playing');
-		this.showNowPlaying = (showNowPlaying !== undefined && showNowPlaying === false) ? false : true;
-
-		if ($(media).data('use-ttml') !== undefined) {
-			this.useTtml = true;
-			this.convert = require('xml-js');
-		} else {
-			this.useTtml = false;
-		}
-
-		var testFallback = $(media).data('test-fallback');
-		if ( testFallback !== undefined && testFallback !== false) {
-			this.testFallback = ( testFallback == '2' ) ? 2 : 1;
-		} else {
-			this.testFallback = false;
-		}
-
-		var lang = $(media).data('lang');
-		this.lang = ( lang !== undefined && lang !== "") ? lang.toLowerCase() : null;
-
-		var metaType = $(media).data('meta-type');
-		if ( metaType !== undefined && metaType !== "") {
-			this.metaType = metaType;
-		}
-		var metaDiv = $(media).data('meta-div');
-		if ( metaDiv !== undefined && metaDiv !== "") {
-			this.metaDiv = metaDiv;
-		}
-
-		var searchDiv = $(media).data('search-div');
-		if ( searchDiv !== undefined && searchDiv !== "") {
-
-			this.searchDiv = searchDiv;
-
-			var searchString = $(media).data('search');
-			if ( searchString !== undefined && searchString !== "") {
-				this.searchString = searchString;
-			}
-
-			var searchLang = $(media).data('search-lang');
-			this.searchLang = ( searchLang !== undefined && searchLang !== "") ? searchLang : null;
-
-			var searchIgnoreCaps = $(media).data('search-ignore-caps');
-			this.searchIgnoreCaps = ( searchIgnoreCaps !== undefined && searchIgnoreCaps !== false) ? true : false;
-		}
-
-		if ($(media).data('hide-controls') !== undefined && $(media).data('hide-controls') !== false) {
-			this.hideControls = true;
-			this.hideControlsOriginal = true; 
-		} else {
-			this.hideControls = false;
-			this.hideControlsOriginal = false;
-		}
-
-		if ($(media).data('steno-mode') !== undefined && $(media).data('steno-mode') !== false) {
-			this.stenoMode = true;
-			if ($(media).data('steno-iframe-id') !== undefined && $(media).data('steno-iframe-id') !== "") {
-				this.stenoFrameId = $(media).data('steno-iframe-id');
-				this.$stenoFrame = $('#' + this.stenoFrameId);
-				if (!(this.$stenoFrame.length)) {
-					this.stenoFrameId = null;
-					this.$stenoFrame = null;
-				}
-			} else {
-				this.stenoFrameId = null;
-				this.$stenoFrame = null;
-			}
-		} else {
-			this.stenoMode = false;
-			this.stenoFrameId = null;
-			this.$stenoFrame = null;
-		}
-
-		this.setDefaults();
-
-
-		this.ableIndex = AblePlayer.nextIndex;
-		AblePlayer.nextIndex += 1;
-
-		this.title = $(media).attr('title');
-
-		this.tt = {};
-		var thisObj = this;
-		$.when(this.getTranslationText()).then(
-			function () {
-				if (thisObj.countProperties(thisObj.tt) > 50) {
-					thisObj.setup();
-				} else {
-					thisObj.provideFallback();
-				}
-			}
-		).
-		fail(function() {
-			thisObj.provideFallback();
-		});
-	};
-
-	AblePlayer.nextIndex = 0;
-
-	AblePlayer.prototype.setup = function() {
-
-		var thisObj = this;
-		this.initializing = true; 
-
-		this.reinitialize().then(function () {
-			if (!thisObj.player) {
-				thisObj.provideFallback();
-			} else {
-				thisObj.setupInstance().then(function () {
-					thisObj.setupInstancePlaylist();
-					if (thisObj.hasPlaylist) {
-					} else {
-						thisObj.recreatePlayer().then(function() {
-							thisObj.initializing = false;
-							thisObj.playerCreated = true; 
-						});
-					}
-				});
-			}
-		});
-	};
-
-	AblePlayer.getActiveDOMElement = function () {
-		var activeElement = document.activeElement;
-
-		while (activeElement.shadowRoot && activeElement.shadowRoot.activeElement) {
-			activeElement = activeElement.shadowRoot.activeElement;
-		}
-
-		return activeElement;
-	};
-
-	AblePlayer.localGetElementById = function(element, id) {
-		if (element.getRootNode) {
-			return $(element.getRootNode().querySelector('#' + id));
-		} else {
-			return $(document.getElementById(id));
-		}
-	};
-
-	AblePlayer.youTubeIframeAPIReady = false;
-	AblePlayer.loadingYouTubeIframeAPI = false;
+  window.onYouTubeIframeAPIReady = function () {
+    AblePlayer.youTubeIframeAPIReady = true;
+    $("body").trigger("youTubeIframeAPIReady", []);
+  };
+  $(window).on("keydown", function (e) {
+    if (AblePlayer.nextIndex === 1) {
+      AblePlayer.lastCreated.onPlayerKeyPress(e);
+    }
+  });
+
+  window.AblePlayer = function (media) {
+    var thisObj = this;
+
+    AblePlayer.lastCreated = this;
+    this.media = media;
+
+    if ($(media).length === 0) {
+      this.provideFallback();
+      return;
+    }
+
+
+    if ($(media).attr("autoplay") !== undefined) {
+      this.autoplay = true; 
+      this.okToPlay = true; 
+    } else {
+      this.autoplay = false;
+      this.okToPlay = false;
+    }
+
+    this.loop = $(media).attr("loop") !== undefined ? true : false;
+
+    this.playsInline = $(media).attr("playsinline") !== undefined ? "1" : "0";
+
+    this.hasPoster = $(media).attr("poster") ? true : false;
+
+    this.width = $(media).attr("width") ?? 0;
+    this.height = $(media).attr("height") ?? 0;
+
+    var startTime = $(media).data("start-time");
+    var isNumeric =
+      typeof startTime === "number" ||
+      (typeof startTime === "string" &&
+        value.trim() !== "" &&
+        !isNaN(value) &&
+        isFinite(Number(value)))
+        ? true
+        : false;
+    this.startTime = startTime !== undefined && isNumeric ? startTime : 0;
+
+    this.debug =
+      $(media).data("debug") !== undefined && $(media).data("debug") !== false
+        ? true
+        : false;
+
+    if ($(media).data("root-path") !== undefined) {
+      this.rootPath = $(media).data("root-path").replace(/\/?$/, "/");
+    } else {
+      this.rootPath = this.getRootPath();
+    }
+
+    this.defaultVolume = 7;
+    if (
+      $(media).data("volume") !== undefined &&
+      $(media).data("volume") !== ""
+    ) {
+      var volume = $(media).data("volume");
+      if (volume >= 0 && volume <= 10) {
+        this.defaultVolume = volume;
+      }
+    }
+    this.volume = this.defaultVolume;
+
+
+    if (
+      $(media).data("use-chapters-button") !== undefined &&
+      $(media).data("use-chapters-button") === false
+    ) {
+      this.useChaptersButton = false;
+    } else {
+      this.useChaptersButton = true;
+    }
+
+    if (
+      $(media).data("descriptions-audible") !== undefined &&
+      $(media).data("descriptions-audible") === false
+    ) {
+      this.readDescriptionsAloud = false;
+    } else if (
+      $(media).data("description-audible") !== undefined &&
+      $(media).data("description-audible") === false
+    ) {
+      this.readDescriptionsAloud = false;
+    } else {
+      this.readDescriptionsAloud = true;
+    }
+
+    this.descVoices = [];
+
+    this.descReader =
+      $(media).data("desc-reader") == "screenreader"
+        ? "screenreader"
+        : "browser";
+
+    this.defaultStateCaptions =
+      $(media).data("state-captions") == "off" ? 0 : 1;
+    this.defaultStateDescriptions =
+      $(media).data("state-descriptions") == "on" ? 1 : 0;
+
+    this.defaultDescPause =
+      $(media).data("desc-pause-default") == "off" ? 0 : 1;
+
+    if (
+      $(media).data("heading-level") !== undefined &&
+      $(media).data("heading-level") !== ""
+    ) {
+      var headingLevel = $(media).data("heading-level");
+      if (/^[0-6]*$/.test(headingLevel)) {
+        this.playerHeadingLevel = headingLevel;
+      }
+    }
+
+    var transcriptDivLocation = $(media).data("transcript-div");
+    if (
+      transcriptDivLocation !== undefined &&
+      transcriptDivLocation !== "" &&
+      null !== document.getElementById(transcriptDivLocation)
+    ) {
+      this.transcriptDivLocation = transcriptDivLocation;
+    } else {
+      this.transcriptDivLocation = null;
+    }
+    var includeTranscript = $(media).data("include-transcript");
+    this.hideTranscriptButton =
+      includeTranscript !== undefined && includeTranscript === false
+        ? true
+        : false;
+
+    this.transcriptType = null;
+    if ($(media).data("transcript-src") !== undefined) {
+      this.transcriptSrc = $(media).data("transcript-src");
+      if (this.transcriptSrcHasRequiredParts()) {
+        this.transcriptType = "manual";
+      } else {
+
+              }
+    } else if (
+      $(media).find(
+        'track[kind="captions"],track[kind="subtitles"],track:not([kind])'
+      ).length > 0
+    ) {
+      this.transcriptType = this.transcriptDivLocation ? "external" : "popup";
+    }
+
+    this.lyricsMode =
+      $(media).data("lyrics-mode") !== undefined &&
+      $(media).data("lyrics-mode") !== false
+        ? true
+        : false;
+
+    if (
+      $(media).data("transcript-title") !== undefined &&
+      $(media).data("transcript-title") !== ""
+    ) {
+      this.transcriptTitle = $(media).data("transcript-title");
+    }
+
+    this.defaultCaptionsPosition =
+      $(media).data("captions-position") === "overlay" ? "overlay" : "below";
+
+    var chaptersDiv = $(media).data("chapters-div");
+    if (chaptersDiv !== undefined && chaptersDiv !== "") {
+      this.chaptersDivLocation = chaptersDiv;
+    }
+
+    if ($(media).data("chapters-title") !== undefined) {
+      this.chaptersTitle = $(media).data("chapters-title");
+    }
+
+    var defaultChapter = $(media).data("chapters-default");
+    this.defaultChapter =
+      defaultChapter !== undefined && defaultChapter !== ""
+        ? defaultChapter
+        : null;
+
+    this.speedIcons =
+      $(media).data("speed-icons") === "arrows" ? "arrows" : "animals";
+
+    var seekbarScope = $(media).data("seekbar-scope");
+    this.seekbarScope =
+      seekbarScope === "chapter" || seekbarScope === "chapters"
+        ? "chapter"
+        : "video";
+
+    var youTubeId = $(media).data("youtube-id");
+    if (youTubeId !== undefined && youTubeId !== "") {
+      this.youTubeId = this.getYouTubeId(youTubeId);
+    }
+
+    var youTubeDescId = $(media).data("youtube-desc-id");
+    if (youTubeDescId !== undefined && youTubeDescId !== "") {
+      this.youTubeDescId = this.getYouTubeId(youTubeDescId);
+    }
+
+    var youTubeSignId = $(media).data("youtube-sign-src");
+    if (youTubeSignId !== undefined && youTubeSignId !== "") {
+      this.youTubeSignId = this.getYouTubeId(youTubeSignId);
+    }
+
+    var youTubeNoCookie = $(media).data("youtube-nocookie");
+    this.youTubeNoCookie =
+      youTubeNoCookie !== undefined && youTubeNoCookie ? true : false;
+
+    var vimeoId = $(media).data("vimeo-id");
+    if (vimeoId !== undefined && vimeoId !== "") {
+      this.vimeoId = this.getVimeoId(vimeoId);
+    }
+    var vimeoDescId = $(media).data("vimeo-desc-id");
+    if (vimeoDescId !== undefined && vimeoDescId !== "") {
+      this.vimeoDescId = this.getVimeoId(vimeoDescId);
+    }
+
+    this.skin = $(media).data("skin") == "legacy" ? "legacy" : "2020";
+
+    if ($(media).data("width") !== undefined) {
+      this.playerWidth = parseInt($(media).data("width"));
+    } else if ($(media)[0].getAttribute("width")) {
+      this.playerWidth = parseInt($(media)[0].getAttribute("width"));
+    } else {
+      this.playerWidth = null;
+    }
+
+    this.iconType = "font";
+    this.forceIconType = false;
+    if (
+      $(media).data("icon-type") !== undefined &&
+      $(media).data("icon-type") !== ""
+    ) {
+      var iconType = $(media).data("icon-type");
+      if (iconType === "font" || iconType === "image" || iconType === "svg") {
+        this.iconType = iconType;
+        this.forceIconType = true;
+      }
+    }
+
+    var allowFullScreen = $(media).data("allow-fullscreen");
+    this.allowFullscreen =
+      allowFullScreen !== undefined && allowFullScreen === false ? false : true;
+
+    this.clickedFullscreenButton = false;
+    this.restoringAfterFullscreen = false;
+
+    this.defaultSeekInterval = 10;
+    this.useFixedSeekInterval = false; 
+    if (
+      $(media).data("seek-interval") !== undefined &&
+      $(media).data("seek-interval") !== ""
+    ) {
+      var seekInterval = $(media).data("seek-interval");
+      if (/^[1-9][0-9]*$/.test(seekInterval)) {
+        this.seekInterval = seekInterval;
+        this.useFixedSeekInterval = true; 
+      }
+    }
+
+    var showNowPlaying = $(media).data("show-now-playing");
+    this.showNowPlaying =
+      showNowPlaying !== undefined && showNowPlaying === false ? false : true;
+
+    if ($(media).data("use-ttml") !== undefined) {
+      this.useTtml = true;
+      this.convert = require("xml-js");
+    } else {
+      this.useTtml = false;
+    }
+
+    var testFallback = $(media).data("test-fallback");
+    if (testFallback !== undefined && testFallback !== false) {
+      this.testFallback = testFallback == "2" ? 2 : 1;
+    } else {
+      this.testFallback = false;
+    }
+
+    var lang = $(media).data("lang");
+    this.lang = lang !== undefined && lang !== "" ? lang.toLowerCase() : null;
+
+    var metaType = $(media).data("meta-type");
+    if (metaType !== undefined && metaType !== "") {
+      this.metaType = metaType;
+    }
+    var metaDiv = $(media).data("meta-div");
+    if (metaDiv !== undefined && metaDiv !== "") {
+      this.metaDiv = metaDiv;
+    }
+
+    var searchDiv = $(media).data("search-div");
+    if (searchDiv !== undefined && searchDiv !== "") {
+      this.searchDiv = searchDiv;
+
+      var searchString = $(media).data("search");
+      if (searchString !== undefined && searchString !== "") {
+        this.searchString = searchString;
+      }
+
+      var searchLang = $(media).data("search-lang");
+      this.searchLang =
+        searchLang !== undefined && searchLang !== "" ? searchLang : null;
+
+      var searchIgnoreCaps = $(media).data("search-ignore-caps");
+      this.searchIgnoreCaps =
+        searchIgnoreCaps !== undefined && searchIgnoreCaps !== false
+          ? true
+          : false;
+    }
+
+    if (
+      $(media).data("hide-controls") !== undefined &&
+      $(media).data("hide-controls") !== false
+    ) {
+      this.hideControls = true;
+      this.hideControlsOriginal = true; 
+    } else {
+      this.hideControls = false;
+      this.hideControlsOriginal = false;
+    }
+
+    if (
+      $(media).data("steno-mode") !== undefined &&
+      $(media).data("steno-mode") !== false
+    ) {
+      this.stenoMode = true;
+      if (
+        $(media).data("steno-iframe-id") !== undefined &&
+        $(media).data("steno-iframe-id") !== ""
+      ) {
+        this.stenoFrameId = $(media).data("steno-iframe-id");
+        this.$stenoFrame = $("#" + this.stenoFrameId);
+        if (!this.$stenoFrame.length) {
+          this.stenoFrameId = null;
+          this.$stenoFrame = null;
+        }
+      } else {
+        this.stenoFrameId = null;
+        this.$stenoFrame = null;
+      }
+    } else {
+      this.stenoMode = false;
+      this.stenoFrameId = null;
+      this.$stenoFrame = null;
+    }
+
+    this.setDefaults();
+
+
+    this.ableIndex = AblePlayer.nextIndex;
+    AblePlayer.nextIndex += 1;
+
+    this.title = $(media).attr("title");
+
+    this.tt = {};
+    var thisObj = this;
+    $.when(this.getTranslationText())
+      .then(function () {
+        if (thisObj.countProperties(thisObj.tt) > 50) {
+          thisObj.setup();
+        } else {
+          thisObj.provideFallback();
+        }
+      })
+      .fail(function () {
+        thisObj.provideFallback();
+      });
+  };
+
+  AblePlayer.nextIndex = 0;
+
+  AblePlayer.prototype.setup = function () {
+    var thisObj = this;
+    this.initializing = true; 
+
+    this.reinitialize().then(function () {
+      if (!thisObj.player) {
+        thisObj.provideFallback();
+      } else {
+        thisObj.setupInstance().then(function () {
+          thisObj.setupInstancePlaylist();
+          if (thisObj.hasPlaylist) {
+          } else {
+            thisObj.recreatePlayer().then(function () {
+              thisObj.initializing = false;
+              thisObj.playerCreated = true; 
+            });
+          }
+        });
+      }
+    });
+  };
+
+  AblePlayer.getActiveDOMElement = function () {
+    var activeElement = document.activeElement;
+
+    while (activeElement.shadowRoot && activeElement.shadowRoot.activeElement) {
+      activeElement = activeElement.shadowRoot.activeElement;
+    }
+
+    return activeElement;
+  };
+
+  AblePlayer.localGetElementById = function (element, id) {
+    if (element.getRootNode) {
+      return $(element.getRootNode().querySelector("#" + id));
+    } else {
+      return $(document.getElementById(id));
+    }
+  };
+
+  AblePlayer.youTubeIframeAPIReady = false;
+  AblePlayer.loadingYouTubeIframeAPI = false;
 })(jQuery);
 
 (function ($) {
@@ -2307,7 +2386,8 @@ var AblePlayerInstances = [];
 		for (var ii = 0; ii < available.length; ii++) {
 			var prefName = available[ii]['name'];
 			var defaultValue = available[ii]['default'];
-			if (cookie.preferences[prefName] !== undefined) {
+			if (cookie.preferences[prefName] !== undefined &&
+				prefName !== "prefDescPause") {
 				this[prefName] = cookie.preferences[prefName];
 			} else {
 				cookie.preferences[prefName] = defaultValue;
