@@ -306,7 +306,10 @@
 		for (var ii = 0; ii < available.length; ii++) {
 			var prefName = available[ii]['name'];
 			var defaultValue = available[ii]['default'];
-			if (cookie.preferences[prefName] !== undefined) {
+			// We don't want to use cookies to set prefDescPause, so we're able to use different settings 
+			// for different players, depending on the desc-pause-default property.
+			if (cookie.preferences[prefName] !== undefined &&
+				prefName !== "prefDescPause") {
 				this[prefName] = cookie.preferences[prefName];
 			} else {
 				cookie.preferences[prefName] = defaultValue;
