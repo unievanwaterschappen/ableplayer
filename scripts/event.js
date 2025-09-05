@@ -270,9 +270,7 @@
 	};
 
 	AblePlayer.prototype.onClickPlayerButton = function (el) {
-
 		var whichButton, prefsPopup;
-
 		whichButton = this.getButtonNameFromClass($(el).attr('class'));
 		switch ( whichButton ) {
 			case 'play':
@@ -779,7 +777,7 @@
 			if (e.button !== 0) { // not a left click
 				return false;
 			}
-			if ($('.able-popup:visible').length || $('.able-volume-popup:visible')) {
+			if ($('.able-popup:visible').length || $('.able-volume-slider:visible').length ) {
 				// at least one popup is visible
 				thisObj.closePopups();
 			}
