@@ -582,7 +582,7 @@
 			}
 		}
 
-		if (context === 'descriptions' || context == 'init'){
+		if (context === 'descriptions' || context == 'init') {
 			if (this.$descButton) {
 				this.toggleButtonState(
 					this.$descButton,
@@ -613,6 +613,7 @@
 					this.captionsOn,
 					ariaLabelOff,
 					ariaLabelOn,
+					'buttonOff',
 					ariaPressed
 				);
 			}
@@ -1146,7 +1147,6 @@
 	};
 
 	AblePlayer.prototype.handleTranscriptToggle = function () {
-
 		var thisObj = this;
 		var visible = this.$transcriptDiv.is(':visible');
 		if ( visible ) {
@@ -1451,16 +1451,8 @@
 	};
 
 	AblePlayer.prototype.toggleButtonState = function($button, isOn, onLabel, offLabel, offClass = 'buttonOff', ariaPressed = false, ariaExpanded = false) {
+		// isOn means "the feature is currently on".
 		if (isOn) {
-			$button.removeClass(offClass).attr('aria-label', onLabel);
-			$button.find('span.able-clipped').text(onLabel);
-			if ( ariaPressed ) {
-				$button.attr('aria-pressed', 'true');
-			}
-			if ( ariaExpanded ) {
-				$button.attr( 'aria-expanded', 'true' );
-			}
-		} else {
 			$button.addClass(offClass).attr('aria-label', offLabel);
 			$button.find('span.able-clipped').text(offLabel);
 			if ( ariaPressed ) {
@@ -1468,6 +1460,15 @@
 			}
 			if ( ariaExpanded ) {
 				$button.attr( 'aria-expanded', 'false' );
+			}
+		} else {
+			$button.removeClass(offClass).attr('aria-label', onLabel);
+			$button.find('span.able-clipped').text(onLabel);
+			if ( ariaPressed ) {
+				$button.attr('aria-pressed', 'true');
+			}
+			if ( ariaExpanded ) {
+				$button.attr( 'aria-expanded', 'true' );
 			}
 		}
 	};
