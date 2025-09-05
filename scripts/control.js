@@ -638,14 +638,6 @@
 					if (!this.hideBigPlayButton) {
 						this.$bigPlayButton.show();
 						this.$bigPlayButton.attr('aria-hidden', 'false');
-
-					}
-					if (this.fullscreen) {
-						this.$bigPlayButton.width($(window).width());
-						this.$bigPlayButton.height($(window).height());
-					} else {
-						this.$bigPlayButton.width(this.$mediaContainer.width());
-						this.$bigPlayButton.height(this.$mediaContainer.height());
 					}
 				} else {
 					this.$bigPlayButton.hide();
