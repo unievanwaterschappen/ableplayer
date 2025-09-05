@@ -582,17 +582,6 @@
 			}
 		}
 
-		if (context === 'descriptions' || context == 'init') {
-			if (this.$descButton) {
-				this.toggleButtonState(
-					this.$descButton,
-					this.descOn,
-					this.tt.turnOffDescriptions,
-					this.tt.turnOnDescriptions,
-				);
-			}
-		}
-
 		if (context === 'captions' || context == 'init') {
 
 			if (this.$ccButton) {
