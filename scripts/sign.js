@@ -2,7 +2,7 @@
 	AblePlayer.prototype.initSignLanguage = function() {
 		this.hasSignLanguage = false;
 		// Sign language is only currently supported in HTML5 player and YouTube.
-		var hasLocalSrc = ( this.$media.data('sign-src') !== undefined && this.$media.data('sign-src') !== "" );
+		var hasLocalSrc = ( this.$sources.first().attr('data-sign-src') !== undefined && this.$sources.first().attr('data-sign-src') !== "" );
 		// YouTube src can either be on a `source` element or on the `video` element.
 		var hasRemoteSrc = ( this.$media.data('youtube-sign-src') !== undefined && this.$media.data('youtube-sign-src') !== "" );
 		var hasRemoteSource = ( this.$sources.first().attr('data-youtube-sign-src') !== undefined && this.$sources.first().attr('data-youtube-sign-src') !== '' );
