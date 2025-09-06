@@ -549,7 +549,7 @@
 			})
 			.on('play',function() {
 				// 'play' indicates that the play method has been called.
-				 thisObj.refreshControls('playpause');
+				// Don't do anything until playback has actually started.
 			})
 			.on('playing',function() {
 				// 'playing' indicates that the video is playing.
