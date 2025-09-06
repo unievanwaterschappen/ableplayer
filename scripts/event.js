@@ -564,8 +564,7 @@
 				thisObj.refreshControls('timeline');
 			})
 			.on('waiting',function() {
-				 // do something
-				 // previously called refreshControls() here but this event probably doesn't warrant a refresh
+				// could fire a notification about loss of data.
 			})
 			.on('durationchange',function() {
 				// Display new duration.
@@ -721,7 +720,6 @@
 	};
 
 	AblePlayer.prototype.addEventListeners = function () {
-
 		// Save the current object context in thisObj for use with inner functions.
 		var thisObj = this;
 
