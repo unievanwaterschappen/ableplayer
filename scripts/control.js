@@ -333,6 +333,13 @@
 					this.youTubeSignPlayer.playVideo();
 				}
 			}
+			if (options && typeof options.volume !== 'undefined') {
+				if ( this.signVideo ) {
+					this.signVideo.volume = 0;
+				} else {
+					this.youTubeSignPlayer.setVolume(0);
+				}
+			}
 		}
 	};
 
@@ -772,7 +779,6 @@
 	};
 
 	AblePlayer.prototype.handlePlay = function(e) {
-
 		if (this.paused) {
 			// user clicked play
 			this.okToPlay = true;
