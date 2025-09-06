@@ -548,11 +548,11 @@
 					thisObj.onMediaNewSourceLoad();
 			})
 			.on('play',function() {
-				// both 'play' and 'playing' seem to be fired in all browsers (including IE11)
-				// therefore, doing nothing here & doing everything when 'playing' is triggered
+				// 'play' indicates that the play method has been called.
 				 thisObj.refreshControls('playpause');
 			})
 			.on('playing',function() {
+				// 'playing' indicates that the video is playing.
 				thisObj.playing = true;
 				thisObj.paused = false;
 				thisObj.swappingSrc = false;
