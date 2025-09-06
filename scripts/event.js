@@ -531,9 +531,6 @@
 			.on('loadedmetadata',function() {
 				// should be able to get duration now
 				thisObj.duration = thisObj.media.duration;
-				var x = 50.5;
-				var y = 51.9;
-				var diff = Math.abs(Math.round(x)-Math.round(y));
 			})
 			.on('canplay',function() {
 				// previously handled seeking to startTime here
@@ -545,7 +542,7 @@
 				// but that proved to be too soon for some of this functionality.
 				// TODO: Monitor this. If moving it here causes performance issues,
 				// consider moving some or all of this functionality to 'canplay'
-					thisObj.onMediaNewSourceLoad();
+				thisObj.onMediaNewSourceLoad();
 			})
 			.on('play',function() {
 				// 'play' indicates that the play method has been called.
