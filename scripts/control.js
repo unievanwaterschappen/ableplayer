@@ -333,6 +333,13 @@
 					this.youTubeSignPlayer.playVideo();
 				}
 			}
+			if (options && typeof options.volume !== 'undefined') {
+				if ( this.signVideo ) {
+					this.signVideo.volume = 0;
+				} else {
+					this.youTubeSignPlayer.setVolume(0);
+				}
+			}
 		}
 	};
 
@@ -582,17 +589,6 @@
 			}
 		}
 
-		if (context === 'descriptions' || context == 'init'){
-			if (this.$descButton) {
-				this.toggleButtonState(
-					this.$descButton,
-					this.descOn,
-					this.tt.turnOffDescriptions,
-					this.tt.turnOnDescriptions,
-				);
-			}
-		}
-
 		if (context === 'captions' || context == 'init') {
 
 			if (this.$ccButton) {
@@ -613,6 +609,7 @@
 					this.captionsOn,
 					ariaLabelOff,
 					ariaLabelOn,
+					'buttonOff',
 					ariaPressed
 				);
 			}
@@ -638,14 +635,6 @@
 					if (!this.hideBigPlayButton) {
 						this.$bigPlayButton.show();
 						this.$bigPlayButton.attr('aria-hidden', 'false');
-
-					}
-					if (this.fullscreen) {
-						this.$bigPlayButton.width($(window).width());
-						this.$bigPlayButton.height($(window).height());
-					} else {
-						this.$bigPlayButton.width(this.$mediaContainer.width());
-						this.$bigPlayButton.height(this.$mediaContainer.height());
 					}
 				} else {
 					this.$bigPlayButton.hide();
@@ -790,7 +779,6 @@
 	};
 
 	AblePlayer.prototype.handlePlay = function(e) {
-
 		if (this.paused) {
 			// user clicked play
 			this.okToPlay = true;
@@ -1154,7 +1142,6 @@
 	};
 
 	AblePlayer.prototype.handleTranscriptToggle = function () {
-
 		var thisObj = this;
 		var visible = this.$transcriptDiv.is(':visible');
 		if ( visible ) {
@@ -1459,16 +1446,8 @@
 	};
 
 	AblePlayer.prototype.toggleButtonState = function($button, isOn, onLabel, offLabel, offClass = 'buttonOff', ariaPressed = false, ariaExpanded = false) {
+		// isOn means "the feature is currently on".
 		if (isOn) {
-			$button.removeClass(offClass).attr('aria-label', onLabel);
-			$button.find('span.able-clipped').text(onLabel);
-			if ( ariaPressed ) {
-				$button.attr('aria-pressed', 'true');
-			}
-			if ( ariaExpanded ) {
-				$button.attr( 'aria-expanded', 'true' );
-			}
-		} else {
 			$button.addClass(offClass).attr('aria-label', offLabel);
 			$button.find('span.able-clipped').text(offLabel);
 			if ( ariaPressed ) {
@@ -1476,6 +1455,15 @@
 			}
 			if ( ariaExpanded ) {
 				$button.attr( 'aria-expanded', 'false' );
+			}
+		} else {
+			$button.removeClass(offClass).attr('aria-label', onLabel);
+			$button.find('span.able-clipped').text(onLabel);
+			if ( ariaPressed ) {
+				$button.attr('aria-pressed', 'true');
+			}
+			if ( ariaExpanded ) {
+				$button.attr( 'aria-expanded', 'true' );
 			}
 		}
 	};

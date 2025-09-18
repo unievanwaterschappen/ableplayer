@@ -714,7 +714,7 @@ var AblePlayerInstances = [];
 				break;
 
 			case 'slower':
-				svg[0] = '0 0 20 20';
+				svg[0] = '0 0 11 20';
 				svg[1] = 'M0 7.321q0-0.29 0.212-0.502t0.502-0.212h10q0.29 0 0.502 0.212t0.212 0.502-0.212 0.502l-5 5q-0.212 0.212-0.502 0.212t-0.502-0.212l-5-5q-0.212-0.212-0.212-0.502z';
 				svg[2] = 'icon-slower';
 				svg[3] = this.slowerButtonImg;
@@ -3206,7 +3206,7 @@ var AblePlayerInstances = [];
 
 	AblePlayer.prototype.injectBigPlayButton = function () {
 
-		var thisObj, svgData, buttonIcon, svgPath;
+		var thisObj;
 
 		thisObj = this;
 
@@ -4788,7 +4788,7 @@ var postProcessing = {
     return vttContent.replace(
       /<c class="([\w\s]+)">/g,
       function (_, classNames) {
-        var classes = classNames.replace(/\./g, " ");
+        var classes = classNames.replace(/ /g, ".");
         return "<c." + classes + ">";
       }
     );
@@ -7815,6 +7815,13 @@ if (typeof module !== "undefined" && module.exports) {
 					this.youTubeSignPlayer.playVideo();
 				}
 			}
+			if (options && typeof options.volume !== 'undefined') {
+				if ( this.signVideo ) {
+					this.signVideo.volume = 0;
+				} else {
+					this.youTubeSignPlayer.setVolume(0);
+				}
+			}
 		}
 	};
 
@@ -8064,17 +8071,6 @@ if (typeof module !== "undefined" && module.exports) {
 			}
 		}
 
-		if (context === 'descriptions' || context == 'init'){
-			if (this.$descButton) {
-				this.toggleButtonState(
-					this.$descButton,
-					this.descOn,
-					this.tt.turnOffDescriptions,
-					this.tt.turnOnDescriptions,
-				);
-			}
-		}
-
 		if (context === 'captions' || context == 'init') {
 
 			if (this.$ccButton) {
@@ -8095,6 +8091,7 @@ if (typeof module !== "undefined" && module.exports) {
 					this.captionsOn,
 					ariaLabelOff,
 					ariaLabelOn,
+					'buttonOff',
 					ariaPressed
 				);
 			}
@@ -8120,14 +8117,6 @@ if (typeof module !== "undefined" && module.exports) {
 					if (!this.hideBigPlayButton) {
 						this.$bigPlayButton.show();
 						this.$bigPlayButton.attr('aria-hidden', 'false');
-
-					}
-					if (this.fullscreen) {
-						this.$bigPlayButton.width($(window).width());
-						this.$bigPlayButton.height($(window).height());
-					} else {
-						this.$bigPlayButton.width(this.$mediaContainer.width());
-						this.$bigPlayButton.height(this.$mediaContainer.height());
 					}
 				} else {
 					this.$bigPlayButton.hide();
@@ -8272,7 +8261,6 @@ if (typeof module !== "undefined" && module.exports) {
 	};
 
 	AblePlayer.prototype.handlePlay = function(e) {
-
 		if (this.paused) {
 			// user clicked play
 			this.okToPlay = true;
@@ -8636,7 +8624,6 @@ if (typeof module !== "undefined" && module.exports) {
 	};
 
 	AblePlayer.prototype.handleTranscriptToggle = function () {
-
 		var thisObj = this;
 		var visible = this.$transcriptDiv.is(':visible');
 		if ( visible ) {
@@ -8941,16 +8928,8 @@ if (typeof module !== "undefined" && module.exports) {
 	};
 
 	AblePlayer.prototype.toggleButtonState = function($button, isOn, onLabel, offLabel, offClass = 'buttonOff', ariaPressed = false, ariaExpanded = false) {
+		// isOn means "the feature is currently on".
 		if (isOn) {
-			$button.removeClass(offClass).attr('aria-label', onLabel);
-			$button.find('span.able-clipped').text(onLabel);
-			if ( ariaPressed ) {
-				$button.attr('aria-pressed', 'true');
-			}
-			if ( ariaExpanded ) {
-				$button.attr( 'aria-expanded', 'true' );
-			}
-		} else {
 			$button.addClass(offClass).attr('aria-label', offLabel);
 			$button.find('span.able-clipped').text(offLabel);
 			if ( ariaPressed ) {
@@ -8958,6 +8937,15 @@ if (typeof module !== "undefined" && module.exports) {
 			}
 			if ( ariaExpanded ) {
 				$button.attr( 'aria-expanded', 'false' );
+			}
+		} else {
+			$button.removeClass(offClass).attr('aria-label', onLabel);
+			$button.find('span.able-clipped').text(onLabel);
+			if ( ariaPressed ) {
+				$button.attr('aria-pressed', 'true');
+			}
+			if ( ariaExpanded ) {
+				$button.attr( 'aria-expanded', 'true' );
 			}
 		}
 	};
@@ -11421,9 +11409,7 @@ if (typeof module !== "undefined" && module.exports) {
 	};
 
 	AblePlayer.prototype.onClickPlayerButton = function (el) {
-
 		var whichButton, prefsPopup;
-
 		whichButton = this.getButtonNameFromClass($(el).attr('class'));
 		switch ( whichButton ) {
 			case 'play':
@@ -11684,9 +11670,6 @@ if (typeof module !== "undefined" && module.exports) {
 			.on('loadedmetadata',function() {
 				// should be able to get duration now
 				thisObj.duration = thisObj.media.duration;
-				var x = 50.5;
-				var y = 51.9;
-				var diff = Math.abs(Math.round(x)-Math.round(y));
 			})
 			.on('canplay',function() {
 				// previously handled seeking to startTime here
@@ -11698,14 +11681,14 @@ if (typeof module !== "undefined" && module.exports) {
 				// but that proved to be too soon for some of this functionality.
 				// TODO: Monitor this. If moving it here causes performance issues,
 				// consider moving some or all of this functionality to 'canplay'
-					thisObj.onMediaNewSourceLoad();
+				thisObj.onMediaNewSourceLoad();
 			})
 			.on('play',function() {
-				// both 'play' and 'playing' seem to be fired in all browsers (including IE11)
-				// therefore, doing nothing here & doing everything when 'playing' is triggered
-				 thisObj.refreshControls('playpause');
+				// 'play' indicates that the play method has been called.
+				// Don't do anything until playback has actually started.
 			})
 			.on('playing',function() {
+				// 'playing' indicates that the video is playing.
 				thisObj.playing = true;
 				thisObj.paused = false;
 				thisObj.swappingSrc = false;
@@ -11720,8 +11703,7 @@ if (typeof module !== "undefined" && module.exports) {
 				thisObj.refreshControls('timeline');
 			})
 			.on('waiting',function() {
-				 // do something
-				 // previously called refreshControls() here but this event probably doesn't warrant a refresh
+				// could fire a notification about loss of data.
 			})
 			.on('durationchange',function() {
 				// Display new duration.
@@ -11877,7 +11859,6 @@ if (typeof module !== "undefined" && module.exports) {
 	};
 
 	AblePlayer.prototype.addEventListeners = function () {
-
 		// Save the current object context in thisObj for use with inner functions.
 		var thisObj = this;
 
@@ -11930,7 +11911,7 @@ if (typeof module !== "undefined" && module.exports) {
 			if (e.button !== 0) { // not a left click
 				return false;
 			}
-			if ($('.able-popup:visible').length || $('.able-volume-popup:visible')) {
+			if ($('.able-popup:visible').length || $('.able-volume-slider:visible').length ) {
 				// at least one popup is visible
 				thisObj.closePopups();
 			}
@@ -12806,29 +12787,29 @@ if (typeof module !== "undefined" && module.exports) {
 
 (function ($) {
 	AblePlayer.prototype.initSignLanguage = function() {
-
+		this.hasSignLanguage = false;
 		// Sign language is only currently supported in HTML5 player and YouTube.
-		var hasLocalSrc = ( this.$media.data('sign-src') !== undefined && this.$media.data('sign-src') !== "" );
+		var hasLocalSrc = ( this.$sources.first().attr('data-sign-src') !== undefined && this.$sources.first().attr('data-sign-src') !== "" );
+		// YouTube src can either be on a `source` element or on the `video` element.
 		var hasRemoteSrc = ( this.$media.data('youtube-sign-src') !== undefined && this.$media.data('youtube-sign-src') !== "" );
-		if ( ! this.isIOS() && ( hasLocalSrc || hasRemoteSrc ) ) {
-			this.hasSignLanguage = true;
-			if ( hasRemoteSrc ) {
-				this.signYoutubeId = this.youTubeSignId;
-			}
-			this.injectSignPlayerCode();
-			return;
-		}
-		if (this.player === 'html5') {
+		var hasRemoteSource = ( this.$sources.first().attr('data-youtube-sign-src') !== undefined && this.$sources.first().attr('data-youtube-sign-src') !== '' );
+		if ( ! this.isIOS() && ( hasLocalSrc || hasRemoteSrc || hasRemoteSource ) && ( this.player === 'html5' || this.player === 'youtube' ) ) {
 			// check to see if there's a sign language video accompanying this video
 			// check only the first source
 			// If sign language is provided, it must be provided for all sources
-			this.signYoutubeId = this.youTubeSignId ?? DOMPurify.sanitize( this.$sources.first().attr('data-youtube-sign-src') );
-			this.signFile = DOMPurify.sanitize( this.$sources.first().attr('data-sign-src') );
-			if (this.signFile || this.signYoutubeId) {
+			let ytSignSrc = this.youTubeSignId ?? DOMPurify.sanitize( this.$sources.first().attr('data-youtube-sign-src') );
+			let signSrc = DOMPurify.sanitize( this.$sources.first().attr('data-sign-src') );
+			let signVideo = DOMPurify.sanitize( this.$media.data('youtube-sign-src') );
+			this.signFile = (hasLocalSrc ) ? signSrc : false;
+			if ( hasRemoteSrc ) {
+				this.signYoutubeId = signVideo;
+			} else if ( hasRemoteSource ) {
+				this.signYoutubeId = ytSignSrc;
+			}
+			if ( this.signFile || this.signYoutubeId ) {
 				if (this.isIOS()) {
 					// iOS does not allow multiple videos to play simultaneously
 					// Therefore, sign language as rendered by Able Player unfortunately won't work
-					this.hasSignLanguage = false;
 					if (this.debug) {
 						console.log('Sign language has been disabled due to iOS restrictions');
 					}
@@ -12839,11 +12820,7 @@ if (typeof module !== "undefined" && module.exports) {
 					this.hasSignLanguage = true;
 					this.injectSignPlayerCode();
 				}
-			} else {
-				this.hasSignLanguage = false;
 			}
-		} else {
-			this.hasSignLanguage = false;
 		}
 	};
 
@@ -14100,9 +14077,18 @@ if (typeof module !== "undefined" && module.exports) {
 			deferred.resolve();
 		})
 		.fail(function() {
-			console.log( "Critical Error: Unable to load translation file:",translationFile);
-			thisObj.provideFallback();
-			deferred.fail();
+			console.log( "Error: Translation files need to be updated to JSON.",translationFile);
+			translationFile = thisObj.rootPath + 'translations/' + thisObj.lang + '.js';
+			$.getJSON(translationFile, function(data) {
+				// success!
+				thisObj.tt = data;
+				deferred.resolve();
+			})
+			.fail( function() {
+				console.log( "Critical Error: Unable to load translation file:",translationFile);
+				thisObj.provideFallback();
+				deferred.fail();
+			});
 		})
 		return deferred.promise();
 	};

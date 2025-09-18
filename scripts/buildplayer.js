@@ -80,7 +80,7 @@
 
 	AblePlayer.prototype.injectBigPlayButton = function () {
 
-		var thisObj, svgData, buttonIcon, svgPath;
+		var thisObj;
 
 		thisObj = this;
 
