@@ -7,7 +7,7 @@
 - New default theme with modernized layout and variables for colors.
   - This summarizes a large number of individually small changes to the layour of AblePlayer elements.
 - Removed many instances of positioning imposed from JS so that more positioning is controllable from CSS.
-- Significant improvements to responsive desgin and behaviors.
+- Significant improvements to responsive design and behaviors.
 
 ### Features
 
@@ -56,7 +56,7 @@
 - Simplify if/else statements. Use ternary or swithc where appropriate or collapse arguments.
 - Reformat if/else statements to remove line breaks before `else`.
 - Remove `$ableColumnLeft` - unused and unidentified variable.
-- Remove unneeed -moz and -mix prefixed fullscreen properties.
+- Remove unneeded -moz and -mix prefixed fullscreen properties.
 - Only create a single alertBox container and move in DOM as needed instead of managing three separate containers.
 - Add new prototype to set the text for buttons.
 - Add new prototype to set icons for buttons.
