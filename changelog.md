@@ -8,6 +8,8 @@
   - This summarizes a large number of individually small changes to the layour of AblePlayer elements.
 - Removed many instances of positioning imposed from JS so that more positioning is controllable from CSS.
 - Significant improvements to responsive design and behaviors.
+- Removed fixed width and height set on big play button.
+- Make big play button partially transparent.
 
 ### Features
 
@@ -36,6 +38,8 @@
 - Fix unwanted lines generated in lyrics mode.
 - Verify the target transcript div exists before setting the external div flag.
 - Support the default value for the `kind` attribute on `source` when omitted.
+- Method to closePopups ran on every click, rather than only when popups were opened.
+- Classname replacement in processing VTT tags replaced spaces with `.` instead of the reverse. Props @jeanem.
 
 ### Accessibility
 
