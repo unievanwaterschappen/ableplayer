@@ -86,9 +86,18 @@
 			deferred.resolve();
 		})
 		.fail(function() {
-			console.log( "Critical Error: Unable to load translation file:",translationFile);
-			thisObj.provideFallback();
-			deferred.fail();
+			console.log( "Error: Translation files need to be updated to JSON.",translationFile);
+			translationFile = thisObj.rootPath + 'translations/' + thisObj.lang + '.js';
+			$.getJSON(translationFile, function(data) {
+				// success!
+				thisObj.tt = data;
+				deferred.resolve();
+			})
+			.fail( function() {
+				console.log( "Critical Error: Unable to load translation file:",translationFile);
+				thisObj.provideFallback();
+				deferred.fail();
+			});
 		})
 		return deferred.promise();
 	};
