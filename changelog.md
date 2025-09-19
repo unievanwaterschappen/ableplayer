@@ -5,7 +5,7 @@
 ### Styling
 
 - New default theme with modernized layout and variables for colors.
-  - This summarizes a large number of individually small changes to the layour of AblePlayer elements.
+  - This summarizes a large number of individually small changes to the layout and styling of Able Player elements.
 - Removed many instances of positioning imposed from JS so that more positioning is controllable from CSS.
 - Significant improvements to responsive design and behaviors.
 - Removed fixed width and height set on big play button.
