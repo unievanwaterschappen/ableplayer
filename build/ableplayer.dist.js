@@ -7542,8 +7542,6 @@ if (typeof module !== "undefined" && module.exports) {
 			if (options && typeof options.volume !== 'undefined') {
 				if ( this.signVideo ) {
 					this.signVideo.volume = 0;
-				} else {
-					this.youTubeSignPlayer.setVolume(0);
 				}
 			}
 		}
@@ -7749,7 +7747,6 @@ if (typeof module !== "undefined" && module.exports) {
 					this.captionsOn,
 					ariaLabelOff,
 					ariaLabelOn,
-					'buttonOff',
 					ariaPressed
 				);
 			}
@@ -8019,7 +8016,7 @@ if (typeof module !== "undefined" && module.exports) {
 	AblePlayer.prototype.handleCaptionToggle = function() {
 
 		var thisObj = this;
-		var captions;
+		var captions, ariaPressed;
 		if (this.hidingPopup) {
 			this.hidingPopup = false;
 			return false;
@@ -8030,7 +8027,7 @@ if (typeof module !== "undefined" && module.exports) {
 			if (this.captionsOn === true) {
 				this.captionsOn = false;
 				this.prefCaptions = 0;
-				this.$ccButton.attr('aria-pressed', 'false');
+				ariaPressed = false;
 				this.updateCookie('prefCaptions');
 				if (this.usingYouTubeCaptions) {
 					this.youTubePlayer.unloadModule('captions');
@@ -8042,7 +8039,7 @@ if (typeof module !== "undefined" && module.exports) {
 			} else {
 				this.captionsOn = true;
 				this.prefCaptions = 1;
-				this.$ccButton.attr('aria-pressed', 'true');
+				ariaPressed = true;
 				this.updateCookie('prefCaptions');
 				if (this.usingYouTubeCaptions) {
 					this.youTubePlayer.loadModule('captions');
@@ -8074,7 +8071,6 @@ if (typeof module !== "undefined" && module.exports) {
 					this.selectedDescriptions = this.descriptions[0];
 				}
 			}
-			this.refreshControls('captions');
 		} else {
 			if (this.captionsPopup && this.captionsPopup.is(':visible')) {
 				this.captionsPopup.hide();
@@ -8096,6 +8092,16 @@ if (typeof module !== "undefined" && module.exports) {
 				}
 			}
 		}
+		var ariaLabelOn = ( captions.length > 1 ) ? this.tt.captions : this.tt.showCaptions;
+		var ariaLabelOff = ( captions.length > 1 ) ? this.tt.captions : this.tt.hideCaptions;
+
+		this.toggleButtonState(
+			this.$ccButton,
+			this.captionsOn,
+			ariaLabelOff,
+			ariaLabelOn,
+			ariaPressed
+		);
 	};
 
 	AblePlayer.prototype.waitThenFocus = function($el, timeout) {
@@ -8198,7 +8204,7 @@ if (typeof module !== "undefined" && module.exports) {
 		var visible = this.$transcriptDiv.is(':visible');
 		if ( visible ) {
 			this.$transcriptArea.hide();
-			this.toggleButtonState( this.$transcriptButton, visible, this.tt.hideTranscript, this.tt.showTranscript );
+			this.toggleButtonState( this.$transcriptButton, ! visible, this.tt.hideTranscript, this.tt.showTranscript );
 			this.prefTranscript = 0;
 			if ( this.transcriptType === 'popup' ) {
 				this.$transcriptButton.trigger('focus').addClass('able-focus');
@@ -8211,7 +8217,7 @@ if (typeof module !== "undefined" && module.exports) {
 				this.positionDraggableWindow('transcript');
 				this.$transcriptArea.show();
 				this.$transcriptPopup.hide();
-				this.toggleButtonState( this.$transcriptButton, visible, this.tt.hideTranscript, this.tt.showTranscript );
+				this.toggleButtonState( this.$transcriptButton, ! visible, this.tt.hideTranscript, this.tt.showTranscript );
 				this.prefTranscript = 1;
 				this.focusNotClick = true;
 				this.$transcriptArea.find('button').first().trigger('focus');
@@ -8219,7 +8225,7 @@ if (typeof module !== "undefined" && module.exports) {
 					thisObj.focusNotClick = false;
 				}, 100);
 			} else {
-				this.toggleButtonState( this.$transcriptButton, visible, this.tt.hideTranscript, this.tt.showTranscript );
+				this.toggleButtonState( this.$transcriptButton, ! visible, this.tt.hideTranscript, this.tt.showTranscript );
 				this.$transcriptArea.show();
 			}
 		}
@@ -8232,7 +8238,7 @@ if (typeof module !== "undefined" && module.exports) {
 		var visible = this.$signWindow.is(':visible');
 		if ( visible ) {
 			this.$signWindow.hide();
-			this.toggleButtonState( this.$signButton, visible, this.tt.hideSign, this.tt.showSign );
+			this.toggleButtonState( this.$signButton, ! visible, this.tt.hideSign, this.tt.showSign );
 			this.prefSign = 0;
 			this.$signButton.trigger('focus').addClass('able-focus');
 			setTimeout(function() {
@@ -8242,7 +8248,7 @@ if (typeof module !== "undefined" && module.exports) {
 			this.positionDraggableWindow('sign');
 			this.$signWindow.show();
 			this.$signPopup.hide();
-			this.toggleButtonState( this.$signButton, visible, this.tt.hideSign, this.tt.showSign );
+			this.toggleButtonState( this.$signButton, ! visible, this.tt.hideSign, this.tt.showSign );
 			this.prefSign = 1;
 			this.focusNotClick = true;
 			this.$signWindow.find('button').first().trigger('focus');
@@ -8440,9 +8446,13 @@ if (typeof module !== "undefined" && module.exports) {
 		$button.append($buttonLabel);
 	};
 
-	AblePlayer.prototype.toggleButtonState = function($button, isOn, onLabel, offLabel, offClass = 'buttonOff', ariaPressed = false, ariaExpanded = false) {
-		if (isOn) {
-			$button.addClass(offClass).attr('aria-label', offLabel);
+	AblePlayer.prototype.toggleButtonState = function($button, isOn, onLabel, offLabel, ariaPressed = false, ariaExpanded = false) {
+		let buttonOff = ( $button.hasClass( 'buttonOff' ) ) ? true : false;
+		if ( buttonOff && ! isOn || ! buttonOff && isOn ) {
+			return;
+		}
+		if (! isOn) {
+			$button.addClass('buttonOff').attr('aria-label', offLabel);
 			$button.find('span.able-clipped').text(offLabel);
 			if ( ariaPressed ) {
 				$button.attr('aria-pressed', 'false');
@@ -8451,7 +8461,7 @@ if (typeof module !== "undefined" && module.exports) {
 				$button.attr( 'aria-expanded', 'false' );
 			}
 		} else {
-			$button.removeClass(offClass).attr('aria-label', onLabel);
+			$button.removeClass('buttonOff').attr('aria-label', onLabel);
 			$button.find('span.able-clipped').text(onLabel);
 			if ( ariaPressed ) {
 				$button.attr('aria-pressed', 'true');
