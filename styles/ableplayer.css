@@ -142,6 +142,8 @@
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
 }
 
+.able-playlist, .able-playlist *,
+.able-chapters-div, .able-chapters-div *,
 .able-wrapper, .able-wrapper * {
 	box-sizing: border-box;
 }
