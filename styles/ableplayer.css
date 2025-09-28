@@ -592,17 +592,21 @@ div.able-modal-overlay {
 	margin-top: 1rem;
 }
 
+.able-modal-header {
+	display: flex;
+	justify-content: space-between;
+}
+
 .able-modal-dialog .modalCloseButton {
-	position: absolute;
-	top: 5px;
-	right: 5px;
 	margin: 0;
+	align-self: flex-start;
 }
 
 div.able-modal-dialog h1 {
 	font-size: 1.5rem;
 	line-height: 1.6;
 	margin: 0 0 .5rem;
+	order: -1;
 }
 
 /* Preferences Form */
