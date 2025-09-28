@@ -1,12 +1,12 @@
 # AblePlayer Changelog
 
-## 4.7.0
+## 4.7.0 September 28th, 2025
 
 ### Styling
 
 - New default theme with modernized layout and variables for colors.
   - This summarizes a large number of individually small changes to the layout and styling of Able Player elements.
-- Removed many instances of positioning imposed from JS so that more positioning is controllable from CSS.
+- Removed somes instances of positioning imposed from JS so positioning is more controllable from CSS.
 - Significant improvements to responsive design and behaviors.
 - Removed fixed width and height set on big play button.
 - Make big play button partially transparent.
@@ -50,7 +50,7 @@
 
 ### Internationalization
 
-- Change all translation files from JS containing a JSON object to `.json`.
+- Change all translation files from JS containing a JSON object to `.json`. Fallback to .js files if JSON sources not found.
 - Add `ms` and `pl` to list of supported languages.
 - Add several new strings to translation files. (Translations needed.)
 
@@ -74,7 +74,7 @@
 - Remove unused prototype `AblePlayer.prototype.isCloseToCorner`.
 - Remove unused `mediaType` argument from AccessibleSlider prototype.
 
-## 4.6.0
+## 4.6.0 June 23rd, 2025
 
 ### Styling
 - Change default skin to "2020".

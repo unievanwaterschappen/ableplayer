@@ -41,8 +41,12 @@
 			modal.attr({
 				'aria-labelledby': 'modalTitle-' + this.baseId,
 			});
-			modal.prepend(titleH1);
-			modal.prepend(closeButton);
+			var modalHeader = $( '<div>', {
+				'class': 'able-modal-header'
+			});
+			modalHeader.prepend(titleH1);
+			modalHeader.prepend(closeButton);
+			modal.prepend(modalHeader);
 		}
 
 		modal.attr({

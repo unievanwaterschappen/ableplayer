@@ -1,4 +1,4 @@
-/*! ableplayer V4.7.0-beta1 with DOMPurify included */
+/*! ableplayer V4.7.0 with DOMPurify included */
 /*! @license DOMPurify 3.2.6 | (c) Cure53 and other contributors | Released under the Apache license 2.0 and Mozilla Public License 2.0 | github.com/cure53/DOMPurify/blob/3.2.6/LICENSE */
 
 (function (global, factory) {
@@ -6450,8 +6450,12 @@ if (typeof module !== "undefined" && module.exports) {
 			modal.attr({
 				'aria-labelledby': 'modalTitle-' + this.baseId,
 			});
-			modal.prepend(titleH1);
-			modal.prepend(closeButton);
+			var modalHeader = $( '<div>', {
+				'class': 'able-modal-header'
+			});
+			modalHeader.prepend(titleH1);
+			modalHeader.prepend(closeButton);
+			modal.prepend(modalHeader);
 		}
 
 		modal.attr({

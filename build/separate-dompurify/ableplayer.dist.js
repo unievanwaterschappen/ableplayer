@@ -1,4 +1,4 @@
-/*! ableplayer V4.7.0-beta1 - In this file, DOMPurify is not bundled in with AblePlayer, but is a required dependency that can be added to the project via a local copy or a CDN */
+/*! ableplayer V4.7.0 - In this file, DOMPurify is not bundled in with AblePlayer, but is a required dependency that can be added to the project via a local copy or a CDN */
 /*
 	// JavaScript for Able Player
 
@@ -6479,8 +6479,12 @@ if (typeof module !== "undefined" && module.exports) {
 			modal.attr({
 				'aria-labelledby': 'modalTitle-' + this.baseId,
 			});
-			modal.prepend(titleH1);
-			modal.prepend(closeButton);
+			var modalHeader = $( '<div>', {
+				'class': 'able-modal-header'
+			});
+			modalHeader.prepend(titleH1);
+			modalHeader.prepend(closeButton);
+			modal.prepend(modalHeader);
 		}
 
 		modal.attr({
