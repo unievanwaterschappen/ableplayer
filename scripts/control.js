@@ -333,6 +333,11 @@
 					this.youTubeSignPlayer.playVideo();
 				}
 			}
+			if (options && typeof options.volume !== 'undefined') {
+				if ( this.signVideo ) {
+					this.signVideo.volume = 0;
+				}
+			}
 		}
 	};
 
@@ -582,7 +587,7 @@
 			}
 		}
 
-		if (context === 'descriptions' || context == 'init'){
+		if (context === 'descriptions' || context == 'init') {
 			if (this.$descButton) {
 				this.toggleButtonState(
 					this.$descButton,
@@ -638,14 +643,6 @@
 					if (!this.hideBigPlayButton) {
 						this.$bigPlayButton.show();
 						this.$bigPlayButton.attr('aria-hidden', 'false');
-
-					}
-					if (this.fullscreen) {
-						this.$bigPlayButton.width($(window).width());
-						this.$bigPlayButton.height($(window).height());
-					} else {
-						this.$bigPlayButton.width(this.$mediaContainer.width());
-						this.$bigPlayButton.height(this.$mediaContainer.height());
 					}
 				} else {
 					this.$bigPlayButton.hide();
@@ -790,7 +787,6 @@
 	};
 
 	AblePlayer.prototype.handlePlay = function(e) {
-
 		if (this.paused) {
 			// user clicked play
 			this.okToPlay = true;
@@ -937,7 +933,7 @@
 	AblePlayer.prototype.handleCaptionToggle = function() {
 
 		var thisObj = this;
-		var captions;
+		var captions, ariaPressed;
 		if (this.hidingPopup) {
 			// stopgap to prevent spacebar in Firefox from reopening popup
 			// immediately after closing it
@@ -952,7 +948,7 @@
 				// turn them off
 				this.captionsOn = false;
 				this.prefCaptions = 0;
-				this.$ccButton.attr('aria-pressed', 'false');
+				ariaPressed = false;
 				this.updateCookie('prefCaptions');
 				if (this.usingYouTubeCaptions) {
 					this.youTubePlayer.unloadModule('captions');
@@ -965,7 +961,7 @@
 				// captions are off. Turn them on.
 				this.captionsOn = true;
 				this.prefCaptions = 1;
-				this.$ccButton.attr('aria-pressed', 'true');
+				ariaPressed = true;
 				this.updateCookie('prefCaptions');
 				if (this.usingYouTubeCaptions) {
 					this.youTubePlayer.loadModule('captions');
@@ -1003,7 +999,6 @@
 					this.selectedDescriptions = this.descriptions[0];
 				}
 			}
-			this.refreshControls('captions');
 		} else {
 			// there is more than one caption track.
 			// clicking on a track is handled via caption.js > getCaptionClickFunction()
@@ -1029,6 +1024,16 @@
 				}
 			}
 		}
+		var ariaLabelOn = ( captions.length > 1 ) ? this.tt.captions : this.tt.showCaptions;
+		var ariaLabelOff = ( captions.length > 1 ) ? this.tt.captions : this.tt.hideCaptions;
+
+		this.toggleButtonState(
+			this.$ccButton,
+			this.captionsOn,
+			ariaLabelOff,
+			ariaLabelOn,
+			ariaPressed
+		);
 	};
 
 	/**
@@ -1154,12 +1159,11 @@
 	};
 
 	AblePlayer.prototype.handleTranscriptToggle = function () {
-
 		var thisObj = this;
 		var visible = this.$transcriptDiv.is(':visible');
 		if ( visible ) {
 			this.$transcriptArea.hide();
-			this.toggleButtonState( this.$transcriptButton, visible, this.tt.hideTranscript, this.tt.showTranscript );
+			this.toggleButtonState( this.$transcriptButton, ! visible, this.tt.hideTranscript, this.tt.showTranscript );
 			this.prefTranscript = 0;
 			if ( this.transcriptType === 'popup' ) {
 				this.$transcriptButton.trigger('focus').addClass('able-focus');
@@ -1178,7 +1182,7 @@
 				// showing transcriptArea has a cascading effect of showing all content *within* transcriptArea
 				// need to re-hide the popup menu
 				this.$transcriptPopup.hide();
-				this.toggleButtonState( this.$transcriptButton, visible, this.tt.hideTranscript, this.tt.showTranscript );
+				this.toggleButtonState( this.$transcriptButton, ! visible, this.tt.hideTranscript, this.tt.showTranscript );
 				this.prefTranscript = 1;
 				// move focus to first focusable element (window options button)
 				this.focusNotClick = true;
@@ -1188,7 +1192,7 @@
 					thisObj.focusNotClick = false;
 				}, 100);
 			} else {
-				this.toggleButtonState( this.$transcriptButton, visible, this.tt.hideTranscript, this.tt.showTranscript );
+				this.toggleButtonState( this.$transcriptButton, ! visible, this.tt.hideTranscript, this.tt.showTranscript );
 				this.$transcriptArea.show();
 			}
 		}
@@ -1201,7 +1205,7 @@
 		var visible = this.$signWindow.is(':visible');
 		if ( visible ) {
 			this.$signWindow.hide();
-			this.toggleButtonState( this.$signButton, visible, this.tt.hideSign, this.tt.showSign );
+			this.toggleButtonState( this.$signButton, ! visible, this.tt.hideSign, this.tt.showSign );
 			this.prefSign = 0;
 			this.$signButton.trigger('focus').addClass('able-focus');
 			// wait briefly before resetting stopgap var
@@ -1215,7 +1219,7 @@
 			// showing signWindow has a cascading effect of showing all content *within* signWindow
 			// need to re-hide the popup menu
 			this.$signPopup.hide();
-			this.toggleButtonState( this.$signButton, visible, this.tt.hideSign, this.tt.showSign );
+			this.toggleButtonState( this.$signButton, ! visible, this.tt.hideSign, this.tt.showSign );
 			this.prefSign = 1;
 			this.focusNotClick = true;
 			this.$signWindow.find('button').first().trigger('focus');
@@ -1458,24 +1462,30 @@
 		$button.append($buttonLabel);
 	};
 
-	AblePlayer.prototype.toggleButtonState = function($button, isOn, onLabel, offLabel, offClass = 'buttonOff', ariaPressed = false, ariaExpanded = false) {
-		if (isOn) {
-			$button.removeClass(offClass).attr('aria-label', onLabel);
-			$button.find('span.able-clipped').text(onLabel);
-			if ( ariaPressed ) {
-				$button.attr('aria-pressed', 'true');
-			}
-			if ( ariaExpanded ) {
-				$button.attr( 'aria-expanded', 'true' );
-			}
-		} else {
-			$button.addClass(offClass).attr('aria-label', offLabel);
+	AblePlayer.prototype.toggleButtonState = function($button, isOn, onLabel, offLabel, ariaPressed = false, ariaExpanded = false) {
+		// isOn means "the feature is being turned on".
+		let buttonOff = ( $button.hasClass( 'buttonOff' ) ) ? true : false;
+		if ( buttonOff && ! isOn || ! buttonOff && isOn ) {
+			// Only toggle state if button state does not match feature state.
+			return;
+		}
+		if (! isOn) {
+			$button.addClass('buttonOff').attr('aria-label', offLabel);
 			$button.find('span.able-clipped').text(offLabel);
 			if ( ariaPressed ) {
 				$button.attr('aria-pressed', 'false');
 			}
 			if ( ariaExpanded ) {
 				$button.attr( 'aria-expanded', 'false' );
+			}
+		} else {
+			$button.removeClass('buttonOff').attr('aria-label', onLabel);
+			$button.find('span.able-clipped').text(onLabel);
+			if ( ariaPressed ) {
+				$button.attr('aria-pressed', 'true');
+			}
+			if ( ariaExpanded ) {
+				$button.attr( 'aria-expanded', 'true' );
 			}
 		}
 	};

@@ -1,13 +1,15 @@
 # AblePlayer Changelog
 
-## 4.7.0
+## 4.7.0 September 28th, 2025
 
 ### Styling
 
 - New default theme with modernized layout and variables for colors.
-  - This summarizes a large number of individually small changes to the layour of AblePlayer elements.
-- Removed many instances of positioning imposed from JS so that more positioning is controllable from CSS.
-- Significant improvements to responsive desgin and behaviors.
+  - This summarizes a large number of individually small changes to the layout and styling of Able Player elements.
+- Removed somes instances of positioning imposed from JS so positioning is more controllable from CSS.
+- Significant improvements to responsive design and behaviors.
+- Removed fixed width and height set on big play button.
+- Make big play button partially transparent.
 
 ### Features
 
@@ -36,6 +38,8 @@
 - Fix unwanted lines generated in lyrics mode.
 - Verify the target transcript div exists before setting the external div flag.
 - Support the default value for the `kind` attribute on `source` when omitted.
+- Method to closePopups ran on every click, rather than only when popups were opened.
+- Classname replacement in processing VTT tags replaced spaces with `.` instead of the reverse. Props @jeanem.
 
 ### Accessibility
 
@@ -46,7 +50,7 @@
 
 ### Internationalization
 
-- Change all translation files from JS containing a JSON object to `.json`.
+- Change all translation files from JS containing a JSON object to `.json`. Fallback to .js files if JSON sources not found.
 - Add `ms` and `pl` to list of supported languages.
 - Add several new strings to translation files. (Translations needed.)
 
@@ -56,7 +60,7 @@
 - Simplify if/else statements. Use ternary or swithc where appropriate or collapse arguments.
 - Reformat if/else statements to remove line breaks before `else`.
 - Remove `$ableColumnLeft` - unused and unidentified variable.
-- Remove unneeed -moz and -mix prefixed fullscreen properties.
+- Remove unneeded -moz and -mix prefixed fullscreen properties.
 - Only create a single alertBox container and move in DOM as needed instead of managing three separate containers.
 - Add new prototype to set the text for buttons.
 - Add new prototype to set icons for buttons.
@@ -70,7 +74,7 @@
 - Remove unused prototype `AblePlayer.prototype.isCloseToCorner`.
 - Remove unused `mediaType` argument from AccessibleSlider prototype.
 
-## 4.6.0
+## 4.6.0 June 23rd, 2025
 
 ### Styling
 - Change default skin to "2020".

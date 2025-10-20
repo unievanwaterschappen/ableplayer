@@ -270,9 +270,7 @@
 	};
 
 	AblePlayer.prototype.onClickPlayerButton = function (el) {
-
 		var whichButton, prefsPopup;
-
 		whichButton = this.getButtonNameFromClass($(el).attr('class'));
 		switch ( whichButton ) {
 			case 'play':
@@ -533,9 +531,6 @@
 			.on('loadedmetadata',function() {
 				// should be able to get duration now
 				thisObj.duration = thisObj.media.duration;
-				var x = 50.5;
-				var y = 51.9;
-				var diff = Math.abs(Math.round(x)-Math.round(y));
 			})
 			.on('canplay',function() {
 				// previously handled seeking to startTime here
@@ -547,14 +542,14 @@
 				// but that proved to be too soon for some of this functionality.
 				// TODO: Monitor this. If moving it here causes performance issues,
 				// consider moving some or all of this functionality to 'canplay'
-					thisObj.onMediaNewSourceLoad();
+				thisObj.onMediaNewSourceLoad();
 			})
 			.on('play',function() {
-				// both 'play' and 'playing' seem to be fired in all browsers (including IE11)
-				// therefore, doing nothing here & doing everything when 'playing' is triggered
-				 thisObj.refreshControls('playpause');
+				// 'play' indicates that the play method has been called.
+				// Don't do anything until playback has actually started.
 			})
 			.on('playing',function() {
+				// 'playing' indicates that the video is playing.
 				thisObj.playing = true;
 				thisObj.paused = false;
 				thisObj.swappingSrc = false;
@@ -569,8 +564,7 @@
 				thisObj.refreshControls('timeline');
 			})
 			.on('waiting',function() {
-				 // do something
-				 // previously called refreshControls() here but this event probably doesn't warrant a refresh
+				// could fire a notification about loss of data.
 			})
 			.on('durationchange',function() {
 				// Display new duration.
@@ -726,7 +720,6 @@
 	};
 
 	AblePlayer.prototype.addEventListeners = function () {
-
 		// Save the current object context in thisObj for use with inner functions.
 		var thisObj = this;
 
@@ -779,7 +772,7 @@
 			if (e.button !== 0) { // not a left click
 				return false;
 			}
-			if ($('.able-popup:visible').length || $('.able-volume-popup:visible')) {
+			if ($('.able-popup:visible').length || $('.able-volume-slider:visible').length ) {
 				// at least one popup is visible
 				thisObj.closePopups();
 			}
