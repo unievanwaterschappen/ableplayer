@@ -756,13 +756,17 @@
 					// Don't change play/pause button display while using the seek bar (or if YouTube stopped)
 					if (!thisObj.seekBar.tracking && !thisObj.stoppingYouTube) {
 						if (currentState === 'paused' || currentState === 'stopped' || currentState === 'ended') {
-							thisObj.$playpauseButton.attr('aria-label',thisObj.tt.play);
-							thisObj.getIcon( thisObj.$playpauseButton, 'play' );
-							thisObj.$playpauseButton.find('span.able-clipped').text(thisObj.tt.play);
-						} else {
+							if(thisObj.activePlayPauseButtonState !== 'play') {
+								thisObj.$playpauseButton.attr('aria-label',thisObj.tt.play);
+								thisObj.getIcon( thisObj.$playpauseButton, 'play' );
+								thisObj.$playpauseButton.find('span.able-clipped').text(thisObj.tt.play);
+								thisObj.activePlayPauseButtonState = 'play';
+							}
+						} else if(thisObj.activePlayPauseButtonState !== 'pause') {
 							thisObj.$playpauseButton.attr('aria-label',thisObj.tt.pause);
 							thisObj.getIcon( thisObj.$playpauseButton, 'pause' );
 							thisObj.$playpauseButton.find('span.able-clipped').text(thisObj.tt.pause);
+							thisObj.activePlayPauseButtonState = 'pause';
 						}
 					}
 				});

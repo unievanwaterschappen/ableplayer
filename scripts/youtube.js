@@ -82,6 +82,7 @@
 			},
 			events: {
 				onReady: function () {
+					
 					thisObj.youTubePlayerReady = true;
 					if (!thisObj.playerWidth || !thisObj.playerHeight) {
 						thisObj.getYouTubeDimensions();

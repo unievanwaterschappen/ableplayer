@@ -449,7 +449,7 @@
 	};
 
 	AblePlayer.prototype.showDescription = function(now) {
-		if (!this.hasClosedDesc || this.swappingSrc || !this.descOn || ( this.descMethod === 'video' && !this.prefDescVisible ) ) {
+		if (!this.hasClosedDesc || this.swappingSrc || !this.descOn || ( this.descMethod === 'video' && !this.prefDescVisible ) || !this.playing) {
 			return;
 		}
 
@@ -546,7 +546,7 @@
 	};
 
 	AblePlayer.prototype.announceDescriptionText = function(context, text) {
-
+		
 		// this function announces description text using speech synthesis
 		// it's only called if already determined that browser supports speech synthesis
 		// context is either:
