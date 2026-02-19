@@ -1,4 +1,4 @@
-/*! ableplayer V4.7.0 with DOMPurify included */
+/*! ableplayer V4.8.0 with DOMPurify included */
 /*! @license DOMPurify 3.2.6 | (c) Cure53 and other contributors | Released under the Apache license 2.0 and Mozilla Public License 2.0 | github.com/cure53/DOMPurify/blob/3.2.6/LICENSE */
 
 (function (global, factory) {
@@ -970,7 +970,6 @@
 }));
 
 
-
 "use strict";
 
 var AblePlayerInstances = [];
@@ -1020,7 +1019,10 @@ const $ = jQuery;
 
 		this.playsInline = ($(media).attr('playsinline') !== undefined) ? '1' : '0';
 
-		this.hasPoster = ($(media).attr('poster')) ? true : false;
+		this.hasPoster = ( $(media).attr('poster') || $(media).data('poster') ) ? true : false;
+
+		this.audioPoster = $(media).data('poster');
+		this.audioPosterAlt = $(media).data('poster-alt' );
 
 		this.width = $(media).attr('width') ?? 0;
 		this.height = $(media).attr('height') ?? 0;
@@ -1104,6 +1106,13 @@ const $ = jQuery;
 			this.transcriptTitle = $(media).data('transcript-title');
 		}
 
+		var signDivLocation = $(media).data('sign-div');
+		if ( signDivLocation !== undefined && signDivLocation !== "" && null !== document.getElementById( signDivLocation ) ) {
+			this.$signDivLocation = $( '#' + signDivLocation );
+		} else {
+			this.$signDivLocation = null;
+		}
+
 		this.defaultCaptionsPosition = ($(media).data('captions-position') === 'overlay') ? 'overlay' : 'below';
 
 		var chaptersDiv = $(media).data('chapters-div');
@@ -1126,6 +1135,10 @@ const $ = jQuery;
 		var youTubeId = $(media).data('youtube-id');
 		if ( youTubeId !== undefined && youTubeId !== "") {
 			this.youTubeId = this.getYouTubeId(youTubeId);
+			if ( ! this.hasPoster ) {
+				let poster = this.getYouTubePosterUrl(this.youTubeId,'640');
+				$(media).attr( 'poster', poster );
+			}
 		}
 
 		var youTubeDescId = $(media).data('youtube-desc-id');
@@ -1144,6 +1157,10 @@ const $ = jQuery;
 		var vimeoId = $(media).data('vimeo-id');
 		if ( vimeoId !== undefined && vimeoId !== "") {
 			this.vimeoId = this.getVimeoId(vimeoId);
+			if ( ! this.hasPoster ) {
+				let poster = thisObj.getVimeoPosterUrl(this.vimeoId,'1200');
+				$(media).attr( 'poster', poster );
+			}
 		}
 		var vimeoDescId = $(media).data('vimeo-desc-id');
 		if ( vimeoDescId !== undefined && vimeoDescId !== "") {
@@ -1269,18 +1286,15 @@ const $ = jQuery;
 
 		this.tt = {};
 		var thisObj = this;
-		$.when(this.getTranslationText()).then(
-			function () {
-				if (thisObj.countProperties(thisObj.tt) > 50) {
-					thisObj.setup();
-				} else {
-					thisObj.provideFallback();
-				}
+		async function fetchTranslations(thisObj) {
+			try {
+				await thisObj.getTranslationText();
+				thisObj.setup();
+			} catch {
+				thisObj.provideFallback();
 			}
-		).
-		fail(function() {
-			thisObj.provideFallback();
-		});
+		}
+		fetchTranslations(thisObj);
 	};
 
 	AblePlayer.nextIndex = 0;
@@ -1619,13 +1633,6 @@ const $ = jQuery;
 				svg[2] = 'icon-fullscreen-collapse';
 				svg[3] = this.fullscreenCollapseButtonImg;
 				break;
-
-			case 'help':
-				svg[0] = '0 0 11 20';
-				svg[1] = 'M0.577 6.317q-0.028-0.167 0.061-0.313 1.786-2.969 5.179-2.969 0.893 0 1.797 0.346t1.629 0.926 1.183 1.423 0.458 1.769q0 0.603-0.173 1.127t-0.391 0.854-0.614 0.664-0.642 0.485-0.681 0.396q-0.458 0.257-0.765 0.725t-0.307 0.748q0 0.19-0.134 0.363t-0.313 0.173h-2.679q-0.167 0-0.285-0.206t-0.117-0.419v-0.502q0-0.926 0.725-1.747t1.596-1.211q0.658-0.301 0.938-0.625t0.279-0.848q0-0.469-0.519-0.826t-1.2-0.357q-0.725 0-1.205 0.324-0.391 0.279-1.194 1.283-0.145 0.179-0.346 0.179-0.134 0-0.279-0.089l-1.83-1.395q-0.145-0.112-0.173-0.279zM3.786 16.875v-2.679q0-0.179 0.134-0.313t0.313-0.134h2.679q0.179 0 0.313 0.134t0.134 0.313v2.679q0 0.179-0.134 0.313t-0.313 0.134h-2.679q-0.179 0-0.313-0.134t-0.134-0.313z';
-				svg[2] = 'icon-help';
-				svg[3] = this.helpButtonImg;
-				break;
 		}
 
 		return svg;
@@ -1635,7 +1642,7 @@ const $ = jQuery;
 
 		var deferred, promise, thisObj;
 
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 		thisObj = this;
 
@@ -1651,7 +1658,7 @@ const $ = jQuery;
 			this.mediaType = 'video';
 		} else {
 			this.provideFallback();
-			deferred.fail();
+			deferred.reject();
 			return promise;
 		}
 
@@ -1669,12 +1676,7 @@ const $ = jQuery;
 
 	AblePlayer.prototype.setPlayerSize = function(width, height) {
 
-
-		if (this.mediaType === 'audio') {
-			if (this.playerWidth) {
-				this.$ableWrapper.css('width',this.playerWidth + 'px');
-			}
-		} else if (width > 0 && height > 0) {
+		if (this.mediaType !== 'audio' && width > 0 && height > 0) {
 			this.playerWidth = width;
 			this.playerHeight = height;
 			this.aspectRatio = height / width;
@@ -1692,7 +1694,7 @@ const $ = jQuery;
 
 	AblePlayer.prototype.setupInstance = function () {
 
-		var deferred = new $.Deferred();
+		var deferred = new this.defer();
 		var promise = deferred.promise();
 
 		if (this.$media.attr('id')) {
@@ -1769,7 +1771,7 @@ const $ = jQuery;
 
 		var deferred, promise, thisObj, prefsGroups, i;
 
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 		thisObj = this;
 
@@ -1812,7 +1814,6 @@ const $ = jQuery;
 
 									thisObj.duration = mediaTimes['duration'];
 									thisObj.elapsed = mediaTimes['elapsed'];
-									thisObj.setFullscreen(false);
 
 									if (typeof thisObj.volume === 'undefined') {
 										thisObj.volume = thisObj.defaultVolume;
@@ -1876,9 +1877,9 @@ const $ = jQuery;
 		} else if (this.player === 'vimeo') {
 			playerPromise = this.initVimeoPlayer();
 		}
-		var deferred = new $.Deferred();
+		var deferred = new this.defer();
 		var promise = deferred.promise();
-		playerPromise.done(
+		playerPromise.then(
 			function () { 
 				if (thisObj.useFixedSeekInterval) {
 					if (!thisObj.seekInterval) {
@@ -1890,7 +1891,7 @@ const $ = jQuery;
 				}
 				deferred.resolve();
 			}
-		).fail(function () { 
+		).finally(function () { 
 			deferred.reject();
 			}
 		);
@@ -1900,9 +1901,8 @@ const $ = jQuery;
 
 	AblePlayer.prototype.initStenoFrame = function() {
 
-		var thisObj, deferred, promise;
-		thisObj = this;
-		deferred = new $.Deferred();
+		var deferred, promise;
+		deferred = new this.defer();
 		promise = deferred.promise();
 
 		if (this.stenoMode && this.$stenoFrame) {
@@ -2004,7 +2004,7 @@ const $ = jQuery;
 	};
 
 	AblePlayer.prototype.initHtml5Player = function () {
-		var deferred = new $.Deferred();
+		var deferred = new this.defer();
 		var promise = deferred.promise();
 		deferred.resolve();
 		return promise;
@@ -2040,89 +2040,95 @@ const $ = jQuery;
 })(jQuery);
 
 (function ($) {
-	AblePlayer.prototype.setCookie = function(cookieValue) {
-
-		Cookies.set('Able-Player', JSON.stringify(cookieValue), {
-			expires: 90,
-			sameSite: 'strict'
-		});
+	AblePlayer.prototype.setPrefs = function(preferences) {
+		if ( typeof Cookies !== 'undefined' ) {
+			Cookies.set('Able-Player', JSON.stringify(preferences), {
+				expires: 90,
+				sameSite: 'strict'
+			});
+		} else {
+			localStorage.setItem( 'Able-Player', JSON.stringify( preferences ) );
+		}
 	};
 
-	AblePlayer.prototype.getCookie = function() {
+	AblePlayer.prototype.getPref = function() {
 
-		var defaultCookie = {
+		var defaultPrefs = {
 			preferences: {},
 			sign: {},
 			transcript: {},
 			voices: []
 		};
 
-		var cookie;
+		var preferences;
 		try {
-			cookie = JSON.parse(Cookies.get('Able-Player'));
+			if ( typeof Cookies !== 'undefined' ) {
+				preferences = JSON.parse( Cookies.get('Able-Player') );
+			} else {
+				preferences = JSON.parse( localStorage.getItem('Able-Player') );
+			}
 		}
 		catch (err) {
-			this.setCookie(defaultCookie);
-			cookie = defaultCookie;
+			this.setPrefs( defaultPrefs );
+			preferences = defaultPrefs;
 		}
-		return (cookie) ? cookie : defaultCookie;
+		return (preferences) ? preferences : defaultPrefs;
 	};
 
-	AblePlayer.prototype.updateCookie = function( setting ) {
-
-		var cookie, $window, windowPos, available, i, prefName, voiceLangFound, newVoice;
-		cookie = this.getCookie();
+	AblePlayer.prototype.updatePreferences = function( setting ) {
+		var preferences, $window, windowPos, available, i, prefName, voiceLangFound, newVoice;
+		preferences = this.getPref();
 		if (setting === 'transcript' || setting === 'sign') {
 			if (setting === 'transcript') {
 				$window = this.$transcriptArea;
 				windowPos = $window.position();
-				if (typeof cookie.transcript === 'undefined') {
-					cookie.transcript = {};
+				if (typeof preferences.transcript === 'undefined') {
+					preferences.transcript = {};
 				}
-				cookie.transcript['position'] = $window.css('position'); 
-				cookie.transcript['zindex'] = $window.css('z-index');
-				cookie.transcript['top'] = windowPos.top;
-				cookie.transcript['left'] = windowPos.left;
-				cookie.transcript['width'] = $window.width();
-				cookie.transcript['height'] = $window.height();
+				preferences.transcript['position'] = $window.css('position'); 
+				preferences.transcript['zindex'] = $window.css('z-index');
+				preferences.transcript['top'] = windowPos.top;
+				preferences.transcript['left'] = windowPos.left;
+				preferences.transcript['width'] = $window.width();
+				preferences.transcript['height'] = $window.height();
 			} else if (setting === 'sign') {
 				$window = this.$signWindow;
 				windowPos = $window.position();
-				if (typeof cookie.sign === 'undefined') {
-					cookie.sign = {};
+				if (typeof preferences.sign === 'undefined') {
+					preferences.sign = {};
 				}
-				cookie.sign['position'] = $window.css('position'); 
-				cookie.sign['zindex'] = $window.css('z-index');
-				cookie.sign['top'] = windowPos.top;
-				cookie.sign['left'] = windowPos.left;
-				cookie.sign['width'] = $window.width();
-				cookie.sign['height'] = $window.height();
+				preferences.sign['position'] = $window.css('position'); 
+				preferences.sign['zindex'] = $window.css('z-index');
+				preferences.sign['top'] = windowPos.top;
+				preferences.sign['left'] = windowPos.left;
+				preferences.sign['width'] = $window.width();
+				preferences.sign['height'] = $window.height();
 			}
 		} else if (setting === 'voice') {
-			if (typeof cookie.voices === 'undefined') {
-				cookie.voices = [];
+			if (typeof preferences.voices === 'undefined') {
+				preferences.voices = [];
 			}
 			voiceLangFound = false;
-			for (var v=0; v < cookie.voices.length; v++) {
-				if (cookie.voices[v].lang === this.prefDescVoiceLang) {
+			for (var v=0; v < preferences.voices.length; v++) {
+				if (preferences.voices[v].lang === this.prefDescVoiceLang) {
 					voiceLangFound = true;
-					cookie.voices[v].name = this.prefDescVoice;
+					preferences.voices[v].name = this.prefDescVoice;
 				}
 			}
 			if (!voiceLangFound) {
 				newVoice = {'name':this.prefDescVoice, 'lang':this.prefDescVoiceLang};
-				cookie.voices.push(newVoice);
+				preferences.voices.push(newVoice);
 			}
 		} else {
 			available = this.getAvailablePreferences();
 			for (i = 0; i < available.length; i++) {
 				prefName = available[i]['name'];
 				if (prefName == setting) {
-					cookie.preferences[prefName] = this[prefName];
+					preferences.preferences[prefName] = this[prefName];
 				}
 			}
 		}
-		this.setCookie(cookie);
+		this.setPrefs(preferences);
 	};
 
 	AblePlayer.prototype.getPreferencesGroups = function() {
@@ -2142,19 +2148,25 @@ const $ = jQuery;
 
 		prefs.push({
 			'name': 'prefAltKey', 
-			'label': this.tt.prefAltKey,
+			'label': this.translate( 'prefAltKey', 'Alt' ),
 			'group': 'keyboard',
 			'default': 1
 		});
 		prefs.push({
 			'name': 'prefCtrlKey', 
-			'label': this.tt.prefCtrlKey,
+			'label': this.translate( 'prefCtrlKey', 'Control' ),
 			'group': 'keyboard',
 			'default': 1
 		});
 		prefs.push({
 			'name': 'prefShiftKey',
-			'label': this.tt.prefShiftKey,
+			'label': this.translate( 'prefShiftKey', 'Shift' ),
+			'group': 'keyboard',
+			'default': 0
+		});
+		prefs.push({
+			'name': 'prefNoKeyShortcuts',
+			'label': this.translate( 'prefNoKeyShortcuts', 'Disable Keyboard Shortcuts' ),
 			'group': 'keyboard',
 			'default': 0
 		});
@@ -2167,7 +2179,7 @@ const $ = jQuery;
 		});
 		prefs.push({
 			'name': 'prefHighlight', 
-			'label': this.tt.prefHighlight,
+			'label': this.translate( 'prefHighlight', 'Highlight transcript as media plays' ),
 			'group': 'transcript',
 			'default': 1 
 		});
@@ -2179,11 +2191,10 @@ const $ = jQuery;
 		});
 		prefs.push({
 			'name': 'prefTabbable', 
-			'label': this.tt.prefTabbable,
+			'label': this.translate( 'prefTabbable', 'Keyboard-enable transcript' ),
 			'group': 'transcript',
 			'default': 0 
 		});
-
 
 		prefs.push({
 			'name': 'prefCaptions', 
@@ -2197,21 +2208,21 @@ const $ = jQuery;
 			if (this.mediaType === 'video') {
 				prefs.push({
 					'name': 'prefCaptionsPosition',
-					'label': this.tt.prefCaptionsPosition,
+					'label': this.translate( 'prefCaptionsPosition', 'Position' ),
 					'group': 'captions',
 					'default': this.defaultCaptionsPosition
 				});
 			}
 			prefs.push({
 				'name': 'prefCaptionsFont',
-				'label': this.tt.prefCaptionsFont,
+				'label': this.translate( 'prefCaptionsFont', 'Font' ),
 				'group': 'captions',
 				'default': 'sans-serif'
 			});
 		}
 		prefs.push({
 			'name': 'prefCaptionsSize',
-			'label': this.tt.prefCaptionsSize,
+			'label': this.translate( 'prefCaptionsSize', 'Font size' ),
 			'group': 'captions',
 			'default': '100%'
 		});
@@ -2220,19 +2231,19 @@ const $ = jQuery;
 
 			prefs.push({
 				'name': 'prefCaptionsColor',
-				'label': this.tt.prefCaptionsColor,
+				'label': this.translate( 'prefCaptionsColor', 'Text Color' ),
 				'group': 'captions',
 				'default': 'white'
 			});
 			prefs.push({
 				'name': 'prefCaptionsBGColor',
-				'label': this.tt.prefCaptionsBGColor,
+				'label': this.translate( 'prefCaptionsBGColor', 'Background' ),
 				'group': 'captions',
 				'default': 'black'
 			});
 			prefs.push({
 				'name': 'prefCaptionsOpacity',
-				'label': this.tt.prefCaptionsOpacity,
+				'label': this.translate( 'prefCaptionsOpacity', 'Opacity' ),
 				'group': 'captions',
 				'default': '100%'
 			});
@@ -2253,39 +2264,39 @@ const $ = jQuery;
 			});
 			prefs.push({
 				'name': 'prefDescVoice',
-				'label': this.tt.prefDescVoice,
+				'label': this.translate( 'prefDescVoice', 'Voice' ),
 				'group': 'descriptions',
 				'default': null 
 			});
 			prefs.push({
 				'name': 'prefDescPitch',
-				'label': this.tt.prefDescPitch,
+				'label': this.translate( 'prefDescPitch', 'Pitch' ),
 				'group': 'descriptions',
 				'default': 1 
 			});
 			prefs.push({
 				'name': 'prefDescRate',
-				'label': this.tt.prefDescRate,
+				'label': this.translate( 'prefDescRate', 'Rate' ),
 				'group': 'descriptions',
 				'default': 1 
 			});
 			prefs.push({
 				'name': 'prefDescVolume',
-				'label': this.tt.volume,
+				'label': this.translate( 'volume', 'Volume' ),
 				'group': 'descriptions',
 				'default': 1 
 			});
 			if ( this.descMethod !== 'video' ) {
 				prefs.push({
 					'name': 'prefDescPause', 
-					'label': this.tt.prefDescPause,
+					'label': this.translate( 'prefDescPause', 'Automatically pause video when description starts' ),
 					'group': 'descriptions',
 					'default': this.defaultDescPause
 				});
 			}
 			prefs.push({
 				'name': 'prefDescVisible', 
-				'label': this.tt.prefDescVisible,
+				'label': this.translate( 'prefDescVisible', 'Make description visible' ),
 				'group': 'descriptions',
 				'default': 0 
 			});
@@ -2304,24 +2315,24 @@ const $ = jQuery;
 
 
 		var available = this.getAvailablePreferences();
-		var cookie = this.getCookie();
+		var preferences = this.getPref();
 		for (var ii = 0; ii < available.length; ii++) {
 			var prefName = available[ii]['name'];
 			var defaultValue = available[ii]['default'];
-			if (cookie.preferences[prefName] !== undefined &&
+			if (preferences.preferences[prefName] !== undefined &&
 				prefName !== "prefDescPause") {
-				this[prefName] = cookie.preferences[prefName];
+				this[prefName] = preferences.preferences[prefName];
 			} else {
-				cookie.preferences[prefName] = defaultValue;
+				preferences.preferences[prefName] = defaultValue;
 				this[prefName] = defaultValue;
 			}
 		}
 
-		if (typeof cookie.voices !== 'undefined') {
-			this.prefVoices = cookie.voices;
+		if (typeof preferences.voices !== 'undefined') {
+			this.prefVoices = preferences.voices;
 		}
 
-		this.setCookie(cookie);
+		this.setPrefs(preferences);
 	};
 
 	AblePlayer.prototype.injectPrefsForm = function (form) {
@@ -2344,58 +2355,58 @@ const $ = jQuery;
 		$prefsDiv.addClass(customClass);
 
 		if (form == 'captions') {
-			formTitle = this.tt.prefTitleCaptions;
+			formTitle = this.translate( 'prefTitleCaptions', 'Captions Preferences' );
 		} else if (form == 'descriptions') {
-			formTitle = this.tt.prefTitleDescriptions;
+			formTitle = this.translate( 'prefTitleDescriptions', 'Audio Description Preferences' );
 			var $prefsIntro = $('<p>',{
-				text: this.tt.prefIntroDescription1
+				text: this.translate( 'prefIntroDescription1', 'This media player supports audio description in two ways: ' )
 			});
 			var $prefsIntroUL = $('<ul>');
 			var $prefsIntroLI1 = $('<li>',{
-				text: this.tt.prefDescFormatOption1
+				text: this.translate( 'prefDescFormatOption1', 'alternative described version of video' )
 			});
 			var $prefsIntroLI2 = $('<li>',{
-				text: this.tt.prefDescFormatOption2
+				text: this.translate( 'prefDescFormatOption2', 'text-based description, announced by screen reader' )
 			});
 
 			$prefsIntroUL.append($prefsIntroLI1,$prefsIntroLI2);
 			if (this.hasOpenDesc && this.hasClosedDesc) {
-				currentDescState = this.tt.prefIntroDescription2 + ' ';
-				currentDescState += '<strong>' + this.tt.prefDescFormatOption1b + '</strong>';
-				currentDescState += ' <em>' + this.tt.and + '</em> <strong>' + this.tt.prefDescFormatOption2b + '</strong>.';
+				currentDescState = this.translate( 'prefIntroDescription2', 'The current video has ' ) + ' ';
+				currentDescState += '<strong>' + this.translate( 'prefDescFormatOption1b', 'an alternative described version' ) + '</strong>';
+				currentDescState += ' <em>' + this.translate( 'and', 'and' ) + '</em> <strong>' + this.translate( 'prefDescFormatOption2b', 'text-based description, announced by screen reader' ) + '</strong>.';
 			} else if (this.hasOpenDesc) {
-				currentDescState = this.tt.prefIntroDescription2;
-				currentDescState += ' <strong>' + this.tt.prefDescFormatOption1b + '</strong>.';
+				currentDescState = this.translate( 'prefIntroDescription2', 'The current video has ' );
+				currentDescState += ' <strong>' + this.translate( 'prefDescFormatOption1b', 'an alternative described version' ) + '</strong>.';
 			} else if (this.hasClosedDesc) {
-				currentDescState = this.tt.prefIntroDescription2;
-				currentDescState += ' <strong>' + this.tt.prefDescFormatOption2b + '</strong>.';
+				currentDescState = this.translate( 'prefIntroDescription2', 'The current video has ' );
+				currentDescState += ' <strong>' + this.translate( 'prefDescFormatOption2b', 'text-based description, announced by screen reader' ) + '</strong>.';
 			} else {
-				currentDescState = this.tt.prefIntroDescriptionNone;
+				currentDescState = this.translate( 'prefIntroDescriptionNone', 'The current video has no audio description in either format.' );
 			}
 			$prefsIntroP2 = $('<p>',{
 				html: currentDescState
 			});
 
-			p3Text = this.tt.prefIntroDescription3;
+			p3Text = this.translate( 'prefIntroDescription3', 'Use the following form to set your preferences related to text-based audio description.' );
 			if (this.hasOpenDesc || this.hasClosedDesc) {
-				p3Text += ' ' + this.tt.prefIntroDescription4;
+				p3Text += ' ' + this.translate( 'prefIntroDescription4', 'After you save your settings, audio description can be toggled on/off using the Description button.' );
 			}
 			$prefsIntroP3 = $('<p>',{
 				text: p3Text
 			});
 
-			$prefsDiv.append($prefsIntro,$prefsIntroUL,$prefsIntroP2,$prefsIntroP3);
+			$prefsDiv.append( $prefsIntro, $prefsIntroUL, $prefsIntroP2, $prefsIntroP3 );
 		} else if (form == 'keyboard') {
-			formTitle = this.tt.prefTitleKeyboard;
-			introText = this.tt.prefIntroKeyboard1;
-			introText += ' ' + this.tt.prefIntroKeyboard2;
-			introText += ' ' + this.tt.prefIntroKeyboard3;
+			formTitle = this.translate( 'prefTitleKeyboard', 'Keyboard Preferences' );
+			introText = this.translate( 'prefIntroKeyboard1', 'The media player on this web page can be operated from anywhere on the page using keyboard shortcuts (see below for a list).' );
+			introText += ' ' + this.translate( 'prefIntroKeyboard2', 'Modifier keys (Shift, Alt, and Control) can be assigned below.' );
+			introText += ' ' + this.translate( 'prefIntroKeyboard3', 'NOTE: Some key combinations might conflict with keys used by your browser and/or other software applications. Try various combinations of modifier keys to find one that works for you.' );
 			$prefsIntro = $('<p>',{
 				text: introText
 			});
 			$prefsDiv.append($prefsIntro);
 		} else if (form == 'transcript') {
-			formTitle = this.tt.prefTitleTranscript;
+			formTitle = this.translate( 'prefTitleTranscript', 'Transcript Preferences' );
 		}
 
 		$fieldset = $('<div>').attr('role','group');
@@ -2404,12 +2415,12 @@ const $ = jQuery;
 		legendId = fieldsetId + '-legend';
 		$fieldset.addClass(fieldsetClass).attr('id',fieldsetId);
 		if (form === 'keyboard') {
-			$legend = $('<h2>' + this.tt.prefHeadingKeyboard1 + '</h2>');
+			$legend = $('<h2>' + this.translate( 'prefHeadingKeyboard1', 'Modifier keys used for shortcuts' ) + '</h2>');
 			$legend.attr('id',legendId);
 			$fieldset.attr('aria-labelledby',legendId);
 			$fieldset.append($legend);
 		} else if (form === 'descriptions') {
-			$legend = $('<h2>' + this.tt.prefHeadingTextDescription + '</h2>');
+			$legend = $('<h2>' + this.translate( 'prefHeadingTextDescription', 'Text-based audio description' ) + '</h2>');
 			$legend.attr('id',legendId);
 			$fieldset.attr('aria-labelledby',legendId);
 			$fieldset.append($legend);
@@ -2440,10 +2451,10 @@ const $ = jQuery;
 						if (thisPref === 'prefCaptionsPosition') {
 							optionValue = options[j];
 							if (optionValue === 'overlay') {
-								optionText = this.tt.captionsPositionOverlay;
+								optionText = this.translate( 'captionsPositionOverlay', 'Overlay' );
 							} else if (optionValue === 'below') {
 								optionValue = options[j];
-								optionText = this.tt.captionsPositionBelow;
+								optionText = this.translate( 'captionsPositionBelow', 'Below video' );
 							}
 						} else if (thisPref === 'prefCaptionsFont' || thisPref === 'prefCaptionsColor' || thisPref === 'prefCaptionsBGColor') {
 							optionValue = options[j][0];
@@ -2451,7 +2462,7 @@ const $ = jQuery;
 						} else if (thisPref === 'prefCaptionsOpacity') {
 							optionValue = options[j];
 							optionText = options[j];
-							optionText += (optionValue === '0%') ? ' (' + this.tt.transparent + ')' : ' (' + this.tt.solid + ')';
+							optionText += (optionValue === '0%') ? ' (' + this.translate( 'transparent', 'transparent' ) + ')' : ' (' + this.translate( 'solid', 'solid' ) + ')';
 						} else {
 							optionValue = options[j];
 							optionText = options[j];
@@ -2557,10 +2568,18 @@ const $ = jQuery;
 								changedSpan = '.able-modkey-shift';
 								changedText = thisObj.tt.prefShiftKey + ' + ';
 							}
-							if ($(this).is(':checked')) {
-								$(changedSpan).text(changedText);
+							if ( changedPref !== 'prefNoKeyShortcuts' ) {
+								if ($(this).is(':checked')) {
+									$(changedSpan).text(changedText);
+								} else {
+									$(changedSpan).text('');
+								}
 							} else {
-								$(changedSpan).text('');
+								if ($(this).is(':checked')) {
+									$('.able-modkey-item').addClass('hidden');
+								} else {
+									$('.able-modkey-item').removeClass('hidden');
+								}
 							}
 						});
 					}
@@ -2578,7 +2597,7 @@ const $ = jQuery;
 			if (!this.usingYouTubeCaptions) {
 				this.$sampleCapsDiv = $('<div>',{
 					'class': 'able-captions-sample'
-				}).text(this.tt.sampleCaptionText);
+				}).text( this.translate( 'sampleCaptionText', 'Sample caption text' ) );
 				$prefsDiv.append(this.$sampleCapsDiv);
 				this.stylizeCaptions(this.$sampleCapsDiv);
 			}
@@ -2586,92 +2605,92 @@ const $ = jQuery;
 			if (this.synth) {
 				this.$sampleDescDiv = $('<div>',{
 					'class': 'able-desc-sample'
-				}).text(this.tt.sampleDescriptionText);
+				}).text( this.translate( 'sampleDescriptionText', 'Adjust settings to hear this sample text.' ) );
 				$prefsDiv.append(this.$sampleDescDiv);
-				this.currentSampleText = this.tt.sampleDescriptionText;
+				this.currentSampleText = this.translate( 'sampleDescriptionText', 'Adjust settings to hear this sample text.' );
 			}
 		} else if (form === 'keyboard') {
+			let shortcutClass = (this.prefNoKeyShortcuts === 1 ) ? 'able-modkey-item hidden' : 'able-modkey-item';
+
 			$kbHeading = $('<h2>',{
-				text: this.tt.prefHeadingKeyboard2
+				text: this.translate( 'prefHeadingKeyboard2', 'Current keyboard shortcuts' )
 			});
 			$kbList = $('<ul>');
 			kbLabels = [];
 			keys = [];
 			for (i=0; i<this.controls.length; i++) {
 				if (this.controls[i] === 'play') {
-					kbLabels.push(this.tt.play + '/' + this.tt.pause);
-					keys.push('p</span> <em>' + this.tt.or + '</em> <span class="able-help-modifiers"> ' + this.tt.spacebar);
+					kbLabels.push( this.translate( 'play', 'Play' ) + '/' + this.translate( 'pause', 'Pause' ) );
+					keys.push('p</span> <em>' + this.translate( 'or', 'or' ) + '</em> <span class="able-help-modifiers"> ' + this.translate( 'spacebar', 'spacebar' ));
 				} else if (this.controls[i] === 'restart') {
-					kbLabels.push(this.tt.restart);
+					kbLabels.push(this.translate( 'restart', 'Restart' ));
 					keys.push('s');
 				} else if (this.controls[i] === 'previous') {
-					kbLabels.push(this.tt.prevTrack);
+					kbLabels.push( this.translate( 'prevTrack', 'Previous track' ) );
 					keys.push('b'); 
 				} else if (this.controls[i] === 'next') {
-					kbLabels.push(this.tt.nextTrack);
+					kbLabels.push( this.translate( 'nextTrack', 'Next track' ) );
 					keys.push('n');
 				} else if (this.controls[i] === 'rewind') {
-					kbLabels.push(this.tt.rewind);
+					kbLabels.push(this.translate( 'rewind', 'Rewind' ));
 					keys.push('r');
 				} else if (this.controls[i] === 'forward') {
-					kbLabels.push(this.tt.forward);
+					kbLabels.push(this.translate( 'forward', 'Forward' ));
 					keys.push('f');
 				} else if (this.controls[i] === 'volume') {
-					kbLabels.push(this.tt.volume);
-					keys.push('v</span> <em>' + this.tt.or + '</em> <span class="able-modkey">1-9');
-					kbLabels.push(this.tt.mute + '/' + this.tt.unmute);
+					kbLabels.push(this.translate( 'volume', 'Volume' ));
+					keys.push('v</span> <em>' + this.translate( 'or', 'or' ) + '</em> <span class="able-modkey">1-9');
+					kbLabels.push(this.translate( 'mute', 'Mute' ) + '/' + this.translate( 'unmute', 'Unmute' ));
 					keys.push('m');
 				} else if (this.controls[i] === 'captions') {
 					if (this.captions.length > 1) {
-						kbLabels.push(this.tt.captions);
+						kbLabels.push(this.translate( 'captions', 'Captions' ));
 					} else {
 						if (this.captionsOn) {
-							kbLabels.push(this.tt.hideCaptions);
+							kbLabels.push(this.translate( 'hideCaptions', 'Hide captions' ));
 						} else {
-							kbLabels.push(this.tt.showCaptions);
+							kbLabels.push(this.translate( 'showCaptions', 'Show captions' ));
 						}
 					}
 					keys.push('c');
 				} else if (this.controls[i] === 'descriptions') {
 					if (this.descOn) {
-						kbLabels.push(this.tt.turnOffDescriptions);
+						kbLabels.push(this.translate( 'turnOffDescriptions', 'Turn off descriptions' ));
 					} else {
-						kbLabels.push(this.tt.turnOnDescriptions);
+						kbLabels.push(this.translate( 'turnOnDescriptions', 'Turn on descriptions' ));
 					}
 					keys.push('d');
 				} else if (this.controls[i] === 'prefs') {
-					kbLabels.push(this.tt.preferences);
+					kbLabels.push(this.translate( 'preferences', 'Preferences' ));
 					keys.push('e');
-				} else if (this.controls[i] === 'help') {
-					kbLabels.push(this.tt.help);
-					keys.push('h');
 				}
 			}
 			for (i=0; i<keys.length; i++) {
 				kbListText = '<span class="able-modkey-alt">';
 				if (this.prefAltKey === 1) {
-					kbListText += this.tt.prefAltKey + ' + ';
+					kbListText += this.translate( 'prefAltKey', 'Alt' ) + ' + ';
 				}
 				kbListText += '</span>';
 				kbListText += '<span class="able-modkey-ctrl">';
 				if (this.prefCtrlKey === 1) {
-					kbListText += this.tt.prefCtrlKey + ' + ';
+					kbListText += this.translate( 'prefCtrlKey', 'Control' ) + ' + ';
 				}
 				kbListText += '</span>';
 				kbListText += '<span class="able-modkey-shift">';
 				if (this.prefShiftKey === 1) {
-					kbListText += this.tt.prefShiftKey + ' + ';
+					kbListText += this.translate( 'prefShiftKey', 'Shift' ) + ' + ';
 				}
 				kbListText += '</span>';
 				kbListText += '<span class="able-modkey">' + keys[i] + '</span>';
 				kbListText += ' = ' + kbLabels[i];
 				$kbListItem = $('<li>',{
-					html: kbListText
+					'class': shortcutClass,
+					html: kbListText,
 				});
 				$kbList.append($kbListItem);
 			}
-			kbListText = '<span class="able-modkey">' + this.tt.escapeKey + '</span>';
-			kbListText += ' = ' + this.tt.escapeKeyFunction;
+			kbListText = '<span class="able-modkey">' + this.translate( 'escapeKey', 'Escape' ) + '</span>';
+			kbListText += ' = ' + this.translate( 'escapeKeyFunction', 'Close current dialog or popup menu' );
 			$kbListItem = $('<li>',{
 				html: kbListText
 			});
@@ -2680,11 +2699,16 @@ const $ = jQuery;
 		}
 
 		$('body').append($prefsDiv);
-		dialog = new AccessibleDialog($prefsDiv, this.$prefsButton, 'dialog', true, formTitle, $prefsIntro, thisObj.tt.closeButtonLabel, false);
+		dialog = new AccessibleDialog(
+			$prefsDiv,
+			this.$prefsButton,
+			formTitle,
+			thisObj.tt.closeButtonLabel
+		);
 
 		$buttonContainer = $( '<div class="able-prefs-buttons"></div>' );
-		$saveButton = $('<button class="modal-button">' + this.tt.save + '</button>');
-		$cancelButton = $('<button class="modal-button">' + this.tt.cancel + '</button>');
+		$saveButton = $('<button class="modal-button">' + this.translate( 'save', 'Save' ) + '</button>');
+		$cancelButton = $('<button class="modal-button">' + this.translate( 'cancel', 'Cancel' ) + '</button>');
 		$saveButton.on( 'click', function () {
 			dialog.hide();
 			thisObj.savePrefsFromForm();
@@ -2721,7 +2745,7 @@ const $ = jQuery;
 
 	AblePlayer.prototype.getPrefDescVoice = function () {
 
-		var lang, cookie, i;
+		var lang, preferences, i;
 
 		if (this.selectedDescriptions) {
 			lang = this.selectedDescriptions.language;
@@ -2730,11 +2754,11 @@ const $ = jQuery;
 		} else {
 			lang = this.lang;
 		}
-		cookie = this.getCookie();
-		if (cookie.voices) {
-			for (i=0; i < cookie.voices.length; i++) {
-				if (cookie.voices[i].lang === lang) {
-					return cookie.voices[i].name;
+		preferences = this.getPref();
+		if (preferences.voices) {
+			for (i=0; i < preferences.voices.length; i++) {
+				if (preferences.voices[i].lang === lang) {
+					return preferences.voices[i].name;
 				}
 			}
 		}
@@ -2768,15 +2792,15 @@ const $ = jQuery;
 
 		if (pref === 'prefDescPitch') {
 			if (value === 0) {
-				return this.tt.prefDescPitch1;
+				return this.translate( 'prefDescPitch1', 'Very low' );
 			} else if (value === 0.5) {
-				return this.tt.prefDescPitch2;
+				return this.translate( 'prefDescPitch2', 'Low' );
 			} else if (value === 1) {
-				return this.tt.prefDescPitch3;
+				return this.translate( 'prefDescPitch3', 'Default' );
 			} else if (value === 1.5) {
-				return this.tt.prefDescPitch4;
+				return this.translate( 'prefDescPitch4', 'High' );
 			} else if (value === 2) {
-				return this.tt.prefDescPitch5;
+				return this.translate( 'prefDescPitch5', 'Very high' );
 			}
 		} else if (pref === 'prefDescRate') {
 			if (value === 0.7) {
@@ -2809,16 +2833,15 @@ const $ = jQuery;
 	AblePlayer.prototype.resetPrefsForm = function () {
 
 
-		var thisObj, cookie, available, i, prefName, prefId, thisDiv, thisId;
+		var thisObj, preferences, available, i, prefName;
 
 		thisObj = this;
-		cookie = this.getCookie();
+		preferences = this.getPref();
 		available = this.getAvailablePreferences();
 		for (i=0; i<available.length; i++) {
 			prefName = available[i]['name'];
-			prefId = this.mediaId + '_' + prefName;
 			if ((prefName.indexOf('Captions') !== -1) && (prefName !== 'prefCaptions')) {
-				$('select[name="' + prefName + '"]').val(cookie.preferences[prefName]);
+				$('select[name="' + prefName + '"]').val(preferences.preferences[prefName]);
 			} else { 
 				if (this[prefName] === 1) {
 					$('input[name="' + prefName + '"]').prop('checked',true);
@@ -2832,48 +2855,48 @@ const $ = jQuery;
 
 	AblePlayer.prototype.savePrefsFromForm = function () {
 
-		var cookie, available, prefName, prefId,
+		var preferences, available, prefName, prefId,
 			voiceSelectId, newVoice, newVoiceLang, numChanges, voiceLangFound,
 			numCapChanges, capSizeChanged, capSizeValue, newValue;
 
 		numChanges = 0;
 		numCapChanges = 0; 
 		capSizeChanged = false;
-		cookie = this.getCookie();
+		preferences = this.getPref();
 		available = this.getAvailablePreferences();
 		for (var i=0; i < available.length; i++) {
 			if (available[i]['label']) {
 				prefName = available[i]['name'];
 				prefId = this.mediaId + '_' + prefName;
 				if (prefName === 'prefDescVoice') {
-					if (typeof cookie.voices === 'undefined') {
-						cookie.voices = [];
+					if (typeof preferences.voices === 'undefined') {
+						preferences.voices = [];
 					}
 					voiceSelectId = this.mediaId + '_prefDescVoice';
 					this.prefDescVoice = $('select#' + voiceSelectId).find(':selected').val();
 					this.prefDescVoiceLang = $('select#' + voiceSelectId).find(':selected').attr('data-lang');
 					voiceLangFound = false;
-					for (var v=0; v < cookie.voices.length; v++) {
-						if (cookie.voices[v].lang === this.prefDescVoiceLang) {
+					for (var v=0; v < preferences.voices.length; v++) {
+						if (preferences.voices[v].lang === this.prefDescVoiceLang) {
 							voiceLangFound = true;
-							cookie.voices[v].name = this.prefDescVoice;
+							preferences.voices[v].name = this.prefDescVoice;
 						}
 					}
 					if (!voiceLangFound) {
 						newVoice = {'name':this.prefDescVoice, 'lang':this.prefDescVoiceLang};
-						cookie.voices.push(newVoice);
+						preferences.voices.push(newVoice);
 					}
 					numChanges++;
 				} else if (prefName == 'prefDescMethod') {
 					this.prefDescMethod = 'video';
-					if (this.prefDescMethod !== cookie.preferences['prefDescMethod']) { 
-						cookie.preferences['prefDescMethod'] = this.prefDescMethod;
+					if (this.prefDescMethod !== preferences.preferences['prefDescMethod']) { 
+						preferences.preferences['prefDescMethod'] = this.prefDescMethod;
 						numChanges++;
 					}
 				} else if ((prefName.indexOf('Captions') !== -1) && (prefName !== 'prefCaptions')) {
 					newValue = $('select[id="' + prefId + '"]').val();
-					if (cookie.preferences[prefName] !== newValue) { 
-						cookie.preferences[prefName] = newValue;
+					if (preferences.preferences[prefName] !== newValue) { 
+						preferences.preferences[prefName] = newValue;
 						this[prefName] = newValue;
 						numChanges++;
 						numCapChanges++;
@@ -2884,21 +2907,21 @@ const $ = jQuery;
 					}
 				} else if ((prefName.indexOf('Desc') !== -1) && (prefName !== 'prefDescPause') && prefName !== 'prefDescVisible') {
 					newValue = $('select[id="' + prefId + '"]').val();
-					if (cookie.preferences[prefName] !== newValue) { 
-						cookie.preferences[prefName] = newValue;
+					if (preferences.preferences[prefName] !== newValue) { 
+						preferences.preferences[prefName] = newValue;
 						this[prefName] = newValue;
 						numChanges++;
 					}
 				} else { 
 					if ($('input[id="' + prefId + '"]').is(':checked')) {
-						cookie.preferences[prefName] = 1;
+						preferences.preferences[prefName] = 1;
 						if (this[prefName] === 1) {
 						} else {
 							this[prefName] = 1;
 							numChanges++;
 						}
 					} else { 
-						cookie.preferences[prefName] = 0;
+						preferences.preferences[prefName] = 0;
 						if (this[prefName] === 1) {
 							this[prefName] = 0;
 							numChanges++;
@@ -2909,10 +2932,10 @@ const $ = jQuery;
 			}
 		}
 		if (numChanges > 0) {
-			this.setCookie(cookie);
-			this.showAlert(this.tt.prefSuccess);
+			this.setPrefs(preferences);
+			this.showAlert( this.translate( 'prefSuccess', 'Your changes have been saved.' ) );
 		} else {
-			this.showAlert(this.tt.prefNoChange);
+			this.showAlert( this.translate( 'prefNoChange', "You didn't make any changes" ) );
 		}
 		if (this.player === 'youtube' &&
 			(typeof this.usingYouTubeCaptions !== 'undefined' && this.usingYouTubeCaptions) &&
@@ -2921,7 +2944,7 @@ const $ = jQuery;
 		}
 		if (AblePlayerInstances.length > 1) {
 			for (var i=0; i<AblePlayerInstances.length; i++) {
-				AblePlayerInstances[i].updatePrefs();
+				AblePlayerInstances[i].updatePlayerPrefs();
 				AblePlayerInstances[i].loadCurrentPreferences();
 				AblePlayerInstances[i].resetPrefsForm();
 				if (numCapChanges > 0) {
@@ -2932,7 +2955,7 @@ const $ = jQuery;
 				}
 			}
 		} else {
-			this.updatePrefs();
+			this.updatePlayerPrefs();
 			if (numCapChanges > 0) {
 				this.stylizeCaptions(this.$captionsDiv);
 				if (typeof this.$descDiv !== 'undefined') {
@@ -2942,8 +2965,7 @@ const $ = jQuery;
 		}
 	}
 
-	AblePlayer.prototype.updatePrefs = function () {
-
+	AblePlayer.prototype.updatePlayerPrefs = function () {
 
 		if (this.$transcriptDiv) {
 			if (this.prefTabbable === 1) {
@@ -2978,8 +3000,10 @@ const $ = jQuery;
 })(jQuery);
 
 (function ($) {
-	AblePlayer.prototype.parseWebVTT = function(srcFile,text) {
+	AblePlayer.prototype.parseWebVTT = function(data) {
 
+		let srcFile = data.src;
+		let text    = data.text;
 		text = text.replace(/(\r\n|\n|\r)/g,'\n');
 
 		var parserState = {
@@ -3644,17 +3668,11 @@ const $ = jQuery;
 	AblePlayer.prototype.injectPlayerCode = function() {
 
 
-		var thisObj, captionsContainer, i;
-		thisObj = this;
-
+		var captionsContainer;
 		this.$mediaContainer = this.$media.wrap('<div class="able-media-container"></div>').parent();
 		this.$ableDiv = this.$mediaContainer.wrap('<div class="able"></div>').parent();
 		this.$ableWrapper = this.$ableDiv.wrap('<div class="able-wrapper"></div>').parent();
 		this.$ableWrapper.addClass('able-skin-' + this.skin);
-
-		this.$ableWrapper.css({
-			'width': this.playerWidth + 'px'
-		});
 
 		if (this.mediaType === 'video') {
 			if (this.iconType != 'image' && (this.player !== 'youtube' || this.hasPoster)) {
@@ -3674,9 +3692,21 @@ const $ = jQuery;
 		this.$captionsContainer = this.$mediaContainer.wrap(captionsContainer).parent();
 		this.injectAlert(this.$ableDiv);
 		this.injectPlaylist();
-
+		this.injectAudioPoster();
 		this.injectOffscreenHeading();
 	};
+
+	AblePlayer.prototype.injectAudioPoster = function() {
+		if ( this.mediaType === 'audio' && this.hasPoster ) {
+			audioPoster = DOMPurify.sanitize(this.audioPoster);
+			audioPosterAlt = DOMPurify.sanitize(this.audioPosterAlt);
+			let audioPosterImg = document.createElement( 'img' );
+			audioPosterImg.setAttribute( 'src', audioPoster );
+			audioPosterImg.setAttribute( 'alt', audioPosterAlt );
+			this.$audioWrapper = this.$playerDiv.wrap( '<div class="able-audio-wrapper">' ).parent();
+			this.$audioWrapper.prepend( audioPosterImg );
+		}
+	}
 
 	AblePlayer.prototype.injectOffscreenHeading = function () {
 
@@ -3690,20 +3720,18 @@ const $ = jQuery;
 			this.$headingDiv = $('<' + headingType + '>');
 			this.$ableDiv.prepend(this.$headingDiv);
 			this.$headingDiv.addClass('able-offscreen');
-			this.$headingDiv.text(this.tt.playerHeading);
+			this.$headingDiv.text( this.translate( 'playerHeading', 'Media player' ) );
 		}
 	};
 
 	AblePlayer.prototype.injectBigPlayButton = function () {
 
-		var thisObj;
-
-		thisObj = this;
+		var thisObj = this;
 
 		this.$bigPlayButton = $('<button>', {
 			'class': 'able-big-play-button',
 			'aria-hidden': false,
-			'aria-label': this.tt.play,
+			'aria-label': this.translate( 'play', 'Play' ),
 			'type': 'button',
 			'tabindex': 0
 		});
@@ -3722,9 +3750,9 @@ const $ = jQuery;
 		this.$playerDiv = $('<div>', {
 			'class' : 'able-player',
 			'role' : 'region',
-			'aria-label' : this.mediaType + ' player'
+			'aria-label' : ( 'audio' === this.mediaType ) ? this.translate( 'audioPlayer', 'audio player' ) : this.translate( 'videoPlayer', 'video player' )
 		});
-		this.$playerDiv.addClass('able-'+this.mediaType);
+		this.$playerDiv.addClass('able-' + this.mediaType);
 		if (this.hasPlaylist && this.showNowPlaying) {
 			this.$nowPlayingDiv = $('<div>',{
 				'class' : 'able-now-playing',
@@ -3756,7 +3784,7 @@ const $ = jQuery;
 			'class' : 'able-speed',
 			'aria-live' : 'assertive',
 			'aria-atomic' : 'true'
-		}).text(this.tt.speed + ': 1x');
+		}).text(this.translate( 'speed', 'Speed' ) + ': 1x');
 
 		this.$status = $('<span>',{
 			'class' : 'able-status',
@@ -3769,6 +3797,7 @@ const $ = jQuery;
 		} else {
 			this.$playerDiv.append(this.$controllerDiv, this.$statusBarDiv);
 		}
+
 		if (this.mediaType === 'video') {
 			this.$ableDiv.append(this.$playerDiv);
 		} else {
@@ -3798,37 +3827,87 @@ const $ = jQuery;
 		}
 	};
 
+	AblePlayer.prototype.rePositionDraggableWindow = function (which) {
+
+		let preferences, $window;
+		preferences = this.getPref();
+		$window = ( which === 'transcript' ) ? this.$transcriptArea : this.$signWindow;
+
+				if ( which === 'transcript' && $window ) {
+			if (typeof preferences.transcript !== 'undefined') {
+				this.prevTranscriptPosition = preferences.transcript;
+			}
+			$window.css({
+				'top': 0,
+				'left': 0
+			});
+		} else if ( 'sign' === which && $window ) {
+			if (typeof preferences.sign !== 'undefined') {
+				this.prevSignPosition = preferences.sign;
+			}
+			$window.css({
+				'top': 0,
+				'right': 0,
+				'left': 'auto'
+			});
+		}
+	}
+
 	AblePlayer.prototype.positionDraggableWindow = function (which, width) {
 
-		var cookie, cookiePos, $window, windowPos;
+		var preferences, preferencePos, $window, windowPos, viewportWidth, windowWidth;
 
-		cookie = this.getCookie();
+		preferences = this.getPref();
 		$window = ( which === 'transcript' ) ? this.$transcriptArea : this.$signWindow;
+		if ( ! $window ) {
+			return;
+		}
 		if (which === 'transcript') {
-			if (typeof cookie.transcript !== 'undefined') {
-				cookiePos = cookie.transcript;
+			if (typeof preferences.transcript !== 'undefined') {
+				preferencePos = preferences.transcript;
+			}
+			if ( this.prevTranscriptPosition ) {
+				preferencePos = this.prevTranscriptPosition;
+				this.prevTranscriptPosition = false;
 			}
 		} else if (which === 'sign') {
-			if (typeof cookie.sign !== 'undefined') {
-				cookiePos = cookie.sign;
+			if (typeof preferences.sign !== 'undefined') {
+				preferencePos = preferences.sign;
+			}
+			if ( this.prevSignPosition ) {
+				preferencePos = this.prevSignPosition;
+				this.prevSignPosition = false;
 			}
 		}
-		if (typeof cookiePos !== 'undefined' && !($.isEmptyObject(cookiePos))) {
+		if (typeof preferencePos !== 'undefined' && !($.isEmptyObject(preferencePos))) {
 			$window.css({
-				'position': cookiePos['position'],
-				'width': cookiePos['width'],
-				'z-index': cookiePos['zindex']
+				'position': preferencePos['position'],
+				'width': preferencePos['width'],
+				'z-index': preferencePos['zindex']
 			});
-			if (cookiePos['position'] === 'absolute') {
+			if (preferencePos['position'] === 'absolute') {
 				$window.css({
-					'top': cookiePos['top'],
-					'left': cookiePos['left']
+					'top': preferencePos['top'],
+					'left': preferencePos['left']
 				});
 				topPosition = $window.offset().top;
+				leftPosition = $window.offset().left;
+				viewportWidth = window.innerWidth;
+				windowWidth = $window.width();
 				if ( topPosition < 0 ) {
 					$window.css({
-						'top': cookiePos['top'] - topPosition,
-						'left': cookiePos['left']
+						'top': preferencePos['top'] - topPosition
+					});
+				}
+				if ( leftPosition < 0 && ! this.restoringAfterFullscreen ) {
+
+										$window.css({
+						'left': preferencePos['left'] - leftPosition
+					});
+				}
+				if ( viewportWidth - leftPosition < 30 ) {
+					$window.css({
+						'left': viewportWidth - windowWidth
 					});
 				}
 			}
@@ -3902,7 +3981,7 @@ const $ = jQuery;
 		$alertText.appendTo(this.$alertBox);
 
 		var $alertDismiss = $('<button type="button"></button>' );
-		$alertDismiss.attr( 'aria-label', this.tt.dismissButton );
+		$alertDismiss.attr( 'aria-label', this.translate( 'dismissButton', 'Dismiss' ) );
 		$alertDismiss.text( '×' );
 		$alertDismiss.appendTo(this.$alertBox);
 
@@ -3932,7 +4011,7 @@ const $ = jQuery;
 
 
 		var thisObj, $menu, includeMenuItem, i, $menuItem, prefCat, whichPref, hasDefault, track,
-		windowOptions, $thisItem, $prevItem, $nextItem;
+		windowOptions, $thisItem, $prevItem, $nextItem, hasDescription, hasTranscript;
 
 		thisObj = this;
 
@@ -3949,19 +4028,25 @@ const $ = jQuery;
 		if (which === 'prefs') {
 			if (this.prefCats.length > 1) {
 				for (i = 0; i < this.prefCats.length; i++) {
+					prefCat = this.prefCats[i];
+					hasDescription = ( thisObj.hasDescTracks || thisObj.hasOpenDesc || thisObj.hasClosedDesc ) ? true : false;
+					hasTranscript  = ( thisObj.transcriptType === null ) ? false : true;
+
+					if ( prefCat === 'descriptions' && ! hasDescription || prefCat === 'transcript' && ! hasTranscript ) {
+						continue;
+					}
 					$menuItem = $('<li></li>',{
 						'role': 'menuitem',
 						'tabindex': '-1'
 					});
-					prefCat = this.prefCats[i];
 					if (prefCat === 'captions') {
-						$menuItem.text(this.tt.prefMenuCaptions);
+						$menuItem.text( this.translate( 'prefMenuCaptions', 'Captions' ) );
 					} else if (prefCat === 'descriptions') {
-						$menuItem.text(this.tt.prefMenuDescriptions);
+						$menuItem.text( this.translate( 'prefMenuDescriptions', 'Descriptions' ) );
 					} else if (prefCat === 'keyboard') {
-						$menuItem.text(this.tt.prefMenuKeyboard);
+						$menuItem.text( this.translate( 'prefMenuKeyboard', 'Keyboard' ) );
 					} else if (prefCat === 'transcript') {
-						$menuItem.text(this.tt.prefMenuTranscript);
+						$menuItem.text( this.translate( 'prefMenuTranscript', 'Transcript' ) );
 					}
 					$menuItem.on('click',function() {
 						whichPref = $(this).text();
@@ -4020,7 +4105,7 @@ const $ = jQuery;
 				$menuItem = $('<li></li>',{
 					'role': 'menuitemradio',
 					'tabindex': '-1',
-				}).text(this.tt.captionsOff);
+				}).text( this.translate( 'captionsOff', 'Captions off' ) );
 				if (this.prefCaptions === 0) {
 					$menuItem.attr('aria-checked','true');
 					hasDefault = true;
@@ -4034,15 +4119,15 @@ const $ = jQuery;
 			windowOptions = [];
 			windowOptions.push({
 				'name': 'move',
-				'label': this.tt.windowMove
+				'label': this.translate( 'windowMove', 'Move' )
 			});
 			windowOptions.push({
 				'name': 'resize',
-				'label': this.tt.windowResize
+				'label': this.translate( 'windowResize', 'Resize' )
 			});
 			windowOptions.push({
 				'name': 'close',
-				'label': this.tt.windowClose
+				'label': this.translate( 'windowClose', 'Close' )
 			});
 			for (i = 0; i < windowOptions.length; i++) {
 				$menuItem = $('<li></li>',{
@@ -4051,7 +4136,7 @@ const $ = jQuery;
 					'data-choice': windowOptions[i].name
 				});
 				$menuItem.text(windowOptions[i].label);
-				$menuItem.on('click mousedown',function(e) {
+				$menuItem.on('click',function(e) {
 					e.stopPropagation();
 					if (typeof e.button !== 'undefined' && e.button !== 0) {
 						return false;
@@ -4389,7 +4474,7 @@ const $ = jQuery;
 			controlLayout[1].push('preferences');
 		}
 
-		if (this.mediaType === 'video' && this.allowFullscreen) {
+		if (this.mediaType === 'video' && this.allowFullscreen && this.nativeFullscreenSupported() ) {
 			if (this.skin === 'legacy') {
 				controlLayout[3].push('fullscreen');
 			} else {
@@ -4415,7 +4500,7 @@ const $ = jQuery;
 
 		var thisObj, baseSliderWidth, controlLayout, numSections,
 		i, j, controls, $controllerSpan, $sliderDiv, sliderLabel, $pipe, control,
-		$buttonLabel, buttonTitle, $newButton, buttonText, position, buttonHeight,
+		buttonTitle, $newButton, buttonText, position, buttonHeight,
 		buttonWidth, buttonSide, controllerWidth, tooltipId, tooltipY, tooltipX,
 		tooltipWidth, tooltipStyle, tooltip, tooltipTimerId, captionLabel, popupMenuId;
 
@@ -4435,7 +4520,7 @@ const $ = jQuery;
 
 		if (this.skin == '2020') {
 			$sliderDiv = $('<div class="able-seekbar"></div>');
-			sliderLabel = this.mediaType + ' ' + this.tt.seekbarLabel;
+			sliderLabel = this.mediaType + ' ' + this.translate( 'seekbarLabel', 'timeline' );
 			this.$controllerDiv.append($sliderDiv);
 			this.seekBar = new AccessibleSlider($sliderDiv, 'horizontal', baseSliderWidth, 0, this.duration, this.seekInterval, sliderLabel, 'seekbar', true, 'visible');
 		}
@@ -4460,7 +4545,7 @@ const $ = jQuery;
 				control = controls[j];
 				if (control === 'seek') {
 					$sliderDiv = $('<div class="able-seekbar"></div>');
-					sliderLabel = this.mediaType + ' ' + this.tt.seekbarLabel;
+					sliderLabel = this.mediaType + ' ' + this.translate( 'seekbarLabel', 'timeline' );
 					$controllerSpan.append($sliderDiv);
 					if (typeof this.duration === 'undefined' || this.duration === 0) {
 						this.duration = 60;
@@ -4595,16 +4680,16 @@ const $ = jQuery;
 					if (control === 'captions') {
 						if (!this.prefCaptions || this.prefCaptions !== 1) {
 							if (this.captions.length > 1) {
-								captionLabel = this.tt.captions;
+								captionLabel = this.translate( 'captions', 'Captions' );
 							} else {
-								captionLabel = this.tt.showCaptions;
+								captionLabel = this.translate( 'showCaptions', 'Show captions' );
 							}
 							$newButton.addClass('buttonOff').attr('title',captionLabel);
 							$newButton.attr('aria-pressed', 'false');
 						}
 					} else if (control === 'descriptions') {
 						if (!this.prefDesc || this.prefDesc !== 1) {
-							$newButton.addClass('buttonOff').attr('title',this.tt.turnOnDescriptions);
+							$newButton.addClass('buttonOff').attr( 'title', this.translate( 'turnOnDescriptions', 'Turn on descriptions' ) );
 						}
 					}
 
@@ -4638,7 +4723,7 @@ const $ = jQuery;
 					} else if (control === 'transcript') {
 						this.$transcriptButton = $newButton;
 						if (!(this.$transcriptDiv.is(':visible'))) {
-							this.$transcriptButton.addClass('buttonOff').attr('title',this.tt.showTranscript);
+							this.$transcriptButton.addClass('buttonOff').attr( 'title', this.translate( 'showTranscript', 'Show transcript' ) );
 						}
 					} else if (control === 'fullscreen') {
 						this.$fullscreenButton = $newButton;
@@ -4677,7 +4762,7 @@ const $ = jQuery;
 	AblePlayer.prototype.cuePlaylistItem = function(sourceIndex) {
 
 
-		var $newItem, prevPlayer, newPlayer, itemTitle, itemLang, $newSource, nowPlayingSpan;
+		var $newItem, prevPlayer, newPlayer, itemTitle, itemLang, nowPlayingSpan;
 
 		var thisObj = this;
 
@@ -4898,46 +4983,45 @@ const $ = jQuery;
 	AblePlayer.prototype.getButtonTitle = function(control) {
 
 		if (control === 'playpause') {
-			return this.tt.play;
+			return this.translate( 'play', 'Play' );
 		} else if (control === 'play') {
-			return this.tt.play;
+			return this.translate( 'play', 'Play' );
 		} else if (control === 'pause') {
-			return this.tt.pause;
+			return this.translate( 'pause', 'Pause' );
 		} else if (control === 'restart') {
-			return this.tt.restart;
+			return this.translate( 'restart', 'Restart' );
 		} else if (control === 'previous') {
-			return this.tt.prevTrack;
+			return this.translate( 'prevTrack', 'Previous track' );
 		} else if (control === 'next') {
-			return this.tt.nextTrack;
+			return this.translate( 'nextTrack', 'Next track' );
 		} else if (control === 'rewind') {
-			return this.tt.rewind;
+			return this.translate( 'rewind', 'Rewind' );
 		} else if (control === 'forward') {
-			return this.tt.forward;
+			return this.translate( 'forward', 'Forward' );
 		} else if (control === 'captions') {
 			if (this.captions.length > 1) {
-				return this.tt.captions;
+				return this.translate( 'captions', 'Captions' );
 			} else {
-				return (this.captionsOn) ? this.tt.hideCaptions : this.tt.showCaptions;
+				return (this.captionsOn) ? this.translate( 'hideCaptions', 'Hide captions' ) : this.translate( 'showCaptions', 'Show captions' );
 			}
 		} else if (control === 'descriptions') {
-			return (this.descOn) ? this.tt.turnOffDescriptions : this.tt.turnOnDescriptions;
+			return (this.descOn) ? this.translate( 'turnOffDescriptions', 'Turn off descriptions' ) : this.translate( 'turnOnDescriptions', 'Turn on descriptions' );
 		} else if (control === 'transcript') {
-			return (this.$transcriptDiv.is(':visible')) ? this.tt.hideTranscript : this.tt.showTranscript;
+			return (this.$transcriptDiv.is(':visible')) ? this.translate( 'hideTranscript', 'Hide transcript' ) : this.translate( 'showTranscript', 'Show transcript' );
 		} else if (control === 'chapters') {
-			return this.tt.chapters;
+			return this.translate( 'chapters', 'Chapters' );
 		} else if (control === 'sign') {
-			return this.tt.sign;
+			return this.translate( 'sign', 'Sign language' );
 		} else if (control === 'volume') {
-			return this.tt.volume;
+			return this.translate( 'volume', 'Volume' );
 		} else if (control === 'faster') {
-			return this.tt.faster;
+			return this.translate( 'faster', 'Faster' );
 		} else if (control === 'slower') {
-			return this.tt.slower;
+			return this.translate( 'slower', 'Slower' );
 		} else if (control === 'preferences') {
-			return this.tt.preferences;
-		} else if (control === 'help') {
+			return this.translate( 'preferences', 'Preferences' );
 		} else if (control === 'fullscreen') {
-			return (!this.fullscreen) ? this.tt.enterFullScreen : this.tt.exitFullScreen;
+			return ( !this.fullscreen ) ? this.translate( 'enterFullScreen', 'Enter full screen' ) : this.translate( 'exitFullScreen', 'Exit full screen' );
 		} else {
 			if (this.debug) {
 
@@ -4950,6 +5034,9 @@ const $ = jQuery;
 
 var preProcessing = {
   transformCSSClasses: function (vttContent) {
+	if ( vttContent.length > 1000 ) {
+		throw new Error( "Input too long" );
+	}
     return vttContent.replace(
       /<(v|c|b|i|u|lang|ruby)\.([\w\.]+)([^>]*)>/g,
       function (_, tag, cssClasses, otherAttrs) {
@@ -5057,8 +5144,9 @@ var validate = {
     var processedLangTags = postProcessing.postprocessLangTag(processedVTags);
 
     var arrowReplaced = processedLangTags.replace(/--&gt;/g, "-->");
+    var timestampTagReplaced = arrowReplaced.replace(/&lt;([\d:.]+)&gt;/g, '<$1>');
 
-    var finalContent = arrowReplaced.replace(
+    var finalContent = timestampTagReplaced.replace(
       /<\/v>/g,
       function (match, offset) {
         return originalVttContent.indexOf(match, offset) !== -1 ? match : "";
@@ -5108,7 +5196,7 @@ if (typeof module !== "undefined" && module.exports) {
 
     thisObj = this;
 
-    deferred = new $.Deferred();
+    deferred = new this.defer();
     promise = deferred.promise();
 
     loadingPromises = [];
@@ -5136,7 +5224,7 @@ if (typeof module !== "undefined" && module.exports) {
         continue;
       }
 	  var trackSrc = track.src;
-      loadingPromise = this.loadTextObject(trackSrc); 
+      loadingPromise = this.loadTextObject(trackSrc);
       loadingPromises.push(
         loadingPromise.catch(function (src) {
 
@@ -5149,10 +5237,8 @@ if (typeof module !== "undefined" && module.exports) {
           var trackLabel = track.label;
           var trackDesc = track.desc;
 
-          return function (trackSrc, trackText) {
-
-            var trackContents = trackText;
-            var cues = thisObj.parseWebVTT(trackSrc, trackContents).cues;
+          return function (data) {
+            var cues = thisObj.parseWebVTT(data).cues;
             if (thisObj.hasVts) {
               thisObj.setupVtsTracks(
                 kind,
@@ -5160,7 +5246,7 @@ if (typeof module !== "undefined" && module.exports) {
                 trackDesc,
                 trackLabel,
                 trackSrc,
-                trackContents
+                data.text
               );
             }
             if (kind === 'captions' || kind === 'subtitles') {
@@ -5194,7 +5280,7 @@ if (typeof module !== "undefined" && module.exports) {
     thisObj = this;
     hasDefault = false;
 
-    deferred = new $.Deferred();
+    deferred = new this.defer();
     promise = deferred.promise();
 
     this.$tracks = this.$media.find('track');
@@ -5292,7 +5378,7 @@ if (typeof module !== "undefined" && module.exports) {
     }
     if (!this.$tracks.length || !this.hasCaptionsTrack) {
       if (this.player === 'youtube') {
-        this.getYouTubeCaptionTracks(this.youTubeId).then(function () {
+        this.getYouTubeCaptionTracks().then(function () {
           if (thisObj.hasCaptions) {
             thisObj.usingYouTubeCaptions = true;
             if (thisObj.$captionsWrapper) {
@@ -5325,7 +5411,7 @@ if (typeof module !== "undefined" && module.exports) {
   };
 
   AblePlayer.prototype.setupCaptions = function (track, cues) {
-    var thisObj, inserted, i, capLabel;
+    var inserted, i, capLabel;
 
     if (typeof cues === "undefined") {
       cues = null;
@@ -5443,7 +5529,7 @@ if (typeof module !== "undefined" && module.exports) {
   AblePlayer.prototype.loadTextObject = function (src) {
     var deferred, promise, thisObj, $tempDiv;
 
-    deferred = new $.Deferred();
+    deferred = new this.defer();
     promise = deferred.promise();
     thisObj = this;
 
@@ -5451,26 +5537,31 @@ if (typeof module !== "undefined" && module.exports) {
       style: 'display:none',
     });
 
-    $.ajax({
-      url: src,
-      dataType: 'text',
-      success: function (data) {
-        var sanitizedTrackText = validate.sanitizeVttContent(data);
+	fetch(src)
+		.then( response => {
 
-        $tempDiv.html(sanitizedTrackText);
+			return response.text();
+  		})
+		.then( vtt => {
+			var preParsed = vtt.split(/\r?\n\s*\r?\n/);
+			var lines = '', line;
 
-        deferred.resolve(src, sanitizedTrackText);
+			preParsed.forEach((l) => {
+				line   = validate.sanitizeVttContent(l);
+				lines += line + "\n\n";
+			});
+			$tempDiv.html(lines);
+			let data = { 'src': src, 'text': lines };
+			deferred.resolve(data);
+			$tempDiv.remove();
+		})
+		.catch( error => {
+			if (thisObj.debug) {
 
-        $tempDiv.remove();
-      },
-      error: function (req, status, error) {
-        if (thisObj.debug) {
-
-                  }
-        deferred.reject(src);
-        $tempDiv.remove();
-      },
-    });
+							}
+			deferred.reject(src);
+			$tempDiv.remove();
+		});
 
     return promise;
   };
@@ -5482,7 +5573,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 		var thisObj, deferred, promise, youTubeId;
 		thisObj = this;
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 
 		this.youTubePlayerReady = false;
@@ -5496,9 +5587,9 @@ if (typeof module !== "undefined" && module.exports) {
 			});
 		} else {
 			if (!AblePlayer.loadingYouTubeIframeAPI) {
-				$.getScript('https://www.youtube.com/iframe_api').fail(function () {
-					deferred.fail();
-				});
+				thisObj.getScript('https://www.youtube.com/iframe_api', function () {
+
+									});
 			}
 
 			$('body').on('youTubeIframeAPIReady', function () {
@@ -5514,7 +5605,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 		var deferred, promise, thisObj, containerId, ccLoadPolicy, autoplay;
 
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 		thisObj = this;
 		containerId = this.mediaId + '_youtube';
@@ -5554,9 +5645,6 @@ if (typeof module !== "undefined" && module.exports) {
 					}
 					if (thisObj.playerWidth && thisObj.playerHeight) {
 						thisObj.youTubePlayer.setSize(thisObj.playerWidth,thisObj.playerHeight);
-						thisObj.$ableWrapper.css({
-							'width': thisObj.playerWidth + 'px'
-						});
 					}
 					if (thisObj.swappingSrc) {
 						thisObj.swappingSrc = false;
@@ -5575,7 +5663,7 @@ if (typeof module !== "undefined" && module.exports) {
 					deferred.resolve();
 				},
 				onError: function (x) {
-					deferred.fail();
+					deferred.reject();
 				},
 				onStateChange: function (x) {
 					thisObj.getPlayerState().then(function(playerState) {
@@ -5640,24 +5728,21 @@ if (typeof module !== "undefined" && module.exports) {
 		}
 	};
 
-	AblePlayer.prototype.getYouTubeCaptionTracks = function (youTubeId) {
+	AblePlayer.prototype.getYouTubeCaptionTracks = function () {
 
-
-		var deferred = new $.Deferred();
+		var deferred = new this.defer();
 		var promise = deferred.promise();
-		var thisObj, ytTracks, i, trackLang, trackLabel, isDefaultTrack;
+		var thisObj, ytTracks, i, trackLang, trackLabel, isDefaultTrack, apiTriggered = false;
 
 		thisObj = this;
-
 		if (!this.youTubePlayer.getOption('captions','tracklist') ) {
-
-			this.youTubePlayer.addEventListener('onApiChange',function(x) {
-
+			this.youTubePlayer.addEventListener('onApiChange',function() {
+				apiTriggered = true;
 				thisObj.duration = thisObj.youTubePlayer.getDuration();
 
 				if (thisObj.loadingYouTubeCaptions) {
 					ytTracks = thisObj.youTubePlayer.getOption('captions','tracklist');
-					if (!thisObj.okToPlay) {
+					if ( ! thisObj.okToPlay ) {
 						thisObj.youTubePlayer.pauseVideo();
 					}
 					if (ytTracks && ytTracks.length) {
@@ -5707,6 +5792,14 @@ if (typeof module !== "undefined" && module.exports) {
 			});
 			this.loadingYouTubeCaptions = true;
 			this.youTubePlayer.playVideo();
+			setTimeout(() => {
+				if ( ! apiTriggered ) {
+					setTimeout(() => {
+						thisObj.youTubePlayer.pauseVideo();
+						deferred.resolve();
+					}, 500);
+				}
+			},500);
 		}
 		return promise;
 	};
@@ -6195,7 +6288,7 @@ if (typeof module !== "undefined" && module.exports) {
 			'max': '10',
 			'step': '1',
 			'orient': 'vertical', 
-			'aria-label': this.tt.volumeUpDown,
+			'aria-label': this.translate( 'volumeUpDown', 'Volume up down' ),
 			'value': this.volume
 		});
 		volumePct = parseInt(thisObj.volume) / 10 * 100;
@@ -6255,11 +6348,10 @@ if (typeof module !== "undefined" && module.exports) {
 
 		volumeName = this.getVolumeName(volume);
 		volumePct = (volume/10) * 100;
-		volumeLabel = this.tt.volume + ' ' + volumePct + '%';
+		volumeLabel = this.translate( 'volume', 'Volume' ) + ' ' + volumePct + '%';
 
 		this.getIcon( this.$volumeButton, 'volume-' + volumeName );
 		this.$volumeButton.attr( 'aria-label', volumeLabel );
-		this.$volumeButton.find('span.able-clipped').text(volumeLabel);
 	};
 
 	AblePlayer.prototype.handleVolumeButtonClick = function() {
@@ -6414,69 +6506,56 @@ if (typeof module !== "undefined" && module.exports) {
 (function ($) {
 	var focusableElementsSelector = "a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, *[tabindex], *[contenteditable]";
 
-	window.AccessibleDialog = function(modalDiv, $returnElement, dialogRole, isModal, title, $descDiv, closeButtonLabel, width, fullscreen, escapeHook) {
+	window.AccessibleDialog = function( modalDiv, $returnElement, title, closeButtonLabel) {
 
 		this.title = title;
 		this.closeButtonLabel = closeButtonLabel;
 		this.focusedElementBeforeModal = $returnElement;
-		this.escapeHook = escapeHook;
 		this.baseId = $(modalDiv).attr('id') || Math.floor(Math.random() * 1000000000).toString();
 		var thisObj = this;
 		var modal = modalDiv;
 		this.modal = modal;
-		if ( width ) {
-			modal.css({
-				'width': width
-			});
-		}
+
 		modal.addClass('able-modal-dialog');
 
-		if (!fullscreen) {
-			var closeButton = $('<button>',{
-				 'class': 'modalCloseButton',
-				 'title': thisObj.closeButtonLabel,
-				 'aria-label': thisObj.closeButtonLabel
-			}).text('×');
-			closeButton.on( 'keydown', function (e) {
-				if (e.key === ' ') {
-					thisObj.hide();
-				}
-			}).on( 'click', function () {
+		var closeButton = $('<button>',{
+				'class': 'modalCloseButton',
+				'title': thisObj.closeButtonLabel,
+				'aria-label': thisObj.closeButtonLabel
+		}).text('×');
+		closeButton.on( 'keydown', function (e) {
+			if (e.key === ' ') {
 				thisObj.hide();
-			});
+			}
+		}).on( 'click', function () {
+			thisObj.hide();
+		});
 
-			var titleH1 = $('<h1></h1>');
-			titleH1.attr('id', 'modalTitle-' + this.baseId);
-			titleH1.text(title);
-			this.titleH1 = titleH1;
+		var titleH1 = $('<h1></h1>');
+		titleH1.attr('id', 'modalTitle-' + this.baseId);
+		titleH1.text(title);
+		this.titleH1 = titleH1;
 
-			modal.attr({
-				'aria-labelledby': 'modalTitle-' + this.baseId,
-			});
-			var modalHeader = $( '<div>', {
-				'class': 'able-modal-header'
-			});
-			modalHeader.prepend(titleH1);
-			modalHeader.prepend(closeButton);
-			modal.prepend(modalHeader);
-		}
+		modal.attr({
+			'aria-labelledby': 'modalTitle-' + this.baseId,
+		});
+		var modalHeader = $( '<div>', {
+			'class': 'able-modal-header'
+		});
+		modalHeader.prepend(titleH1);
+		modalHeader.prepend(closeButton);
+		modal.prepend(modalHeader);
 
 		modal.attr({
 			'aria-hidden': 'true',
-			'role': dialogRole,
+			'role': 'dialog',
+			'aria-modal': 'true'
 		});
-		if (isModal) {
-			modal.attr('aria-modal','true');
-		}
 
 		modal.on( 'keydown', function (e) {
 			if (e.key === 'Escape') {
-				if (thisObj.escapeHook) {
-					thisObj.escapeHook(e, this);
-				} else {
-					thisObj.hide();
-					e.preventDefault();
-				}
+				thisObj.hide();
+				e.preventDefault();
 			} else if (e.key === 'Tab') {
 				var parts = modal.find('*');
 				var focusable = parts.filter(focusableElementsSelector).filter(':visible');
@@ -6685,6 +6764,35 @@ if (typeof module !== "undefined" && module.exports) {
     return Number(Math.floor(value + "e" + decimals) + "e-" + decimals);
   };
 
+  AblePlayer.prototype.defer = function() {
+	const self = this;
+	const promise = new Promise((resolve, reject) => {
+		self.resolve = resolve;
+		self.reject = reject;
+		self.promise = () => promise;
+	});
+  }
+
+  AblePlayer.prototype.getScript = function( source, callback ) {
+	var script   = document.createElement('script');
+	var prior    = document.getElementsByTagName('script')[0];
+	script.async = 1;
+
+	script.onload = script.onreadystatechange = function( _, isAbort ) {
+		if ( isAbort || !script.readyState || /loaded|complete/.test(script.readyState) ) {
+			script.onload = script.onreadystatechange = null;
+			script        = undefined;
+
+			if ( !isAbort && callback ) {
+				setTimeout(callback, 0);
+			}
+		}
+	};
+
+	script.src = source;
+	prior.parentNode.insertBefore(script, prior);
+  }
+
   AblePlayer.prototype.hasAttr = function (object, attribute) {
 
     var attr = object.attr(attribute);
@@ -6706,7 +6814,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 		var deferred, promise, thisObj;
 
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 		thisObj = this;
 
@@ -6753,11 +6861,11 @@ if (typeof module !== "undefined" && module.exports) {
 				if (this.prefDescVisible) {
 					if (typeof this.$descDiv !== 'undefined') {
 						this.$descDiv.show();
-						this.$descDiv.removeClass('able-clipped');
+						this.$descDiv.removeClass('able-offscreen');
 					}
 				} else {
 					if (typeof this.$descDiv !== 'undefined') {
-						this.$descDiv.addClass('able-clipped');
+						this.$descDiv.addClass('able-offscreen');
 					}
 				}
 			}
@@ -6769,7 +6877,7 @@ if (typeof module !== "undefined" && module.exports) {
 			} else if (this.descMethod === 'text') { 
 				if (typeof this.$descDiv !== 'undefined') {
 					this.$descDiv.hide();
-					this.$descDiv.removeClass('able-clipped');
+					this.$descDiv.removeClass('able-offscreen');
 				}
 			}
 		}
@@ -6869,9 +6977,9 @@ if (typeof module !== "undefined" && module.exports) {
 	AblePlayer.prototype.setDescriptionVoice = function () {
 
 
-		var cookie, voices, prefDescVoice, descVoice, descLang, prefVoiceFound;
-		cookie = this.getCookie();
-		prefDescVoice = (typeof cookie.voices !== 'undefined') ? this.getPrefDescVoice() : null;
+		var preferences, voices, prefDescVoice, descVoice, descLang, prefVoiceFound;
+		preferences = this.getPref();
+		prefDescVoice = (typeof preferences.voices !== 'undefined') ? this.getPrefDescVoice() : null;
 
 		this.getBrowserVoices();
 		this.rebuildDescPrefsForm();
@@ -6912,7 +7020,7 @@ if (typeof module !== "undefined" && module.exports) {
 				if (this.$voiceSelectField) {
 					this.$voiceSelectField.val(this.prefDescVoice);
 				}
-				this.updateCookie('voice');
+				this.updatePreferences('voice');
 			}
 		}
 	};
@@ -6920,7 +7028,7 @@ if (typeof module !== "undefined" && module.exports) {
 	AblePlayer.prototype.swapDescription = function() {
 
 
-		var thisObj, i, origSrc, descSrc, srcType;
+		var thisObj, i, origSrc, descSrc;
 
 		thisObj = this;
 
@@ -6943,9 +7051,9 @@ if (typeof module !== "undefined" && module.exports) {
 		}
 
 		if (this.descOn) {
-			this.showAlert(this.tt.alertDescribedVersion);
+			this.showAlert( this.translate( 'alertDescribedVersion', 'Using the audio described version of this video' ) );
 		} else {
-			this.showAlert(this.tt.alertNonDescribedVersion);
+			this.showAlert( this.translate( 'alertNonDescribedVersion', 'Using the non-described version of this video' ) );
 		}
 
 		if (this.player === 'html5') {
@@ -7009,10 +7117,10 @@ if (typeof module !== "undefined" && module.exports) {
 		} else if (this.player === 'vimeo') {
 			if (this.usingDescribedVersion()) {
 				this.activeVimeoId = this.vimeoId;
-				this.showAlert(this.tt.alertNonDescribedVersion);
+				this.showAlert( this.translate( 'alertNonDescribedVersion', 'Using the non-described version of this video' ) );
 			} else {
 				this.activeVimeoId = this.vimeoDescId;
-				this.showAlert(this.tt.alertDescribedVersion);
+				this.showAlert( this.translate( 'alertDescribedVersion', 'Using the audio described version of this video' ) );
 			}
 			if (this.playerCreated) {
 				this.deletePlayer('swap-desc-vimeo');
@@ -7033,11 +7141,11 @@ if (typeof module !== "undefined" && module.exports) {
 	};
 
 	AblePlayer.prototype.showDescription = function(now) {
-		if (!this.hasClosedDesc || this.swappingSrc || !this.descOn || ( this.descMethod === 'video' && !this.prefDescVisible ) || !this.playing) {
+		if (!this.playing || !this.hasClosedDesc || this.swappingSrc || !this.descOn || ( this.descMethod === 'video' && !this.prefDescVisible ) ) {
 			return;
 		}
 
-		var thisObj, i, cues, d, thisDescription, descText;
+		var thisObj, cues, d, thisDescription, descText;
 		thisObj = this;
 
 		var flattenComponentForDescription = function (component) {
@@ -7305,7 +7413,7 @@ if (typeof module !== "undefined" && module.exports) {
 		var deferred, promise, thisObj, mediaTimes;
 		mediaTimes = {};
 
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 		thisObj = this;
 		if (typeof duration !== 'undefined' && typeof elapsed !== 'undefined') {
@@ -7328,7 +7436,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 		var deferred, promise, thisObj;
 
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 		thisObj = this;
 
@@ -7373,7 +7481,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 		var deferred, promise, thisObj;
 
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 		thisObj = this;
 
@@ -7413,7 +7521,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 
 		var deferred, promise, thisObj;
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 		thisObj = this;
 
@@ -7492,7 +7600,7 @@ if (typeof module !== "undefined" && module.exports) {
 		}
 		this.syncSignVideo( { 'rate' : rate } );
 		this.playbackRate = rate;
-		this.$speed.text(this.tt.speed + ': ' + rate.toFixed(2).toString() + 'x');
+		this.$speed.text( this.translate( 'speed', 'Speed' ) + ': ' + rate.toFixed(2).toString() + 'x');
 	};
 
 	AblePlayer.prototype.getPlaybackRate = function () {
@@ -7569,8 +7677,6 @@ if (typeof module !== "undefined" && module.exports) {
 
 	AblePlayer.prototype.playMedia = function () {
 
-		var thisObj = this;
-
 		this.syncSignVideo( { 'play' : true } );
 
 		if (this.player === 'html5') {
@@ -7596,19 +7702,12 @@ if (typeof module !== "undefined" && module.exports) {
 
 
 
-
-		var thisObj, mediaHeight, playerHeight, newMediaHeight;
-		thisObj = this;
+		var thisObj = this;
 
 		if (direction == 'out') {
-			mediaHeight = this.$mediaContainer.height();
-			playerHeight = this.$playerDiv.height();
-			newMediaHeight = mediaHeight + playerHeight;
-
-			this.$playerDiv.fadeTo(2000,0,function() {
-			});
+			this.$playerDiv.addClass( 'fade-out' ).removeClass( 'fade-in' );
 		} else if (direction == 'in') {
-			this.$playerDiv.fadeTo(100,1);
+			this.$playerDiv.addClass( 'fade-in' ).removeClass( 'fade-out' );
 		}
 	};
 
@@ -7739,8 +7838,8 @@ if (typeof module !== "undefined" && module.exports) {
 				this.toggleButtonState(
 					this.$descButton,
 					this.descOn,
-					this.tt.turnOffDescriptions,
-					this.tt.turnOnDescriptions,
+					this.translate( 'turnOffDescriptions', 'Turn off descriptions' ),
+					this.translate( 'turnOnDescriptions', 'Turn on descriptions' ),
 				);
 			}
 		}
@@ -7756,8 +7855,8 @@ if (typeof module !== "undefined" && module.exports) {
 						'aria-controls': this.mediaId + '-captions-menu'
 					});
 				}
-				var ariaLabelOn = ( captionsCount > 1 ) ? this.tt.captions : this.tt.showCaptions;
-				var ariaLabelOff = ( captionsCount > 1 ) ? this.tt.captions : this.tt.hideCaptions;
+				var ariaLabelOn = ( captionsCount > 1 ) ? this.translate( 'captions', 'Captions' ) : this.translate( 'showCaptions', 'Show captions' );
+				var ariaLabelOff = ( captionsCount > 1 ) ? this.translate( 'captions', 'Captions' ) : this.translate( 'hideCaptions', 'Hide captions' );
 				var ariaPressed = ( captionsCount > 1 ) ? true : false;
 
 				this.toggleButtonState(
@@ -7773,13 +7872,11 @@ if (typeof module !== "undefined" && module.exports) {
 		if (context === 'fullscreen' || context == 'init'){
 			if (this.$fullscreenButton) {
 				if (!this.fullscreen) {
-					this.$fullscreenButton.attr('aria-label', this.tt.enterFullScreen);
+					this.$fullscreenButton.attr( 'aria-label', this.translate( 'enterFullScreen', 'Enter full screen' ) );
 					this.getIcon( this.$fullscreenButton, 'fullscreen-expand' );
-					this.$fullscreenButton.find('span.able-clipped').text(this.tt.enterFullScreen);
 				} else {
-					this.$fullscreenButton.attr('aria-label',this.tt.exitFullscreen);
+					this.$fullscreenButton.attr('aria-label', this.translate( 'exitFullScreen', 'Exit full screen' ) );
 					this.getIcon( this.$fullscreenButton, 'fullscreen-collapse' );
-					this.$fullscreenButton.find('span.able-clipped').text(this.tt.exitFullscreen);
 				}
 			}
 		}
@@ -7828,7 +7925,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 			if (this.$chaptersButton) {
 				this.$chaptersButton.attr({
-					'aria-label': this.tt.chapters,
+					'aria-label': this.translate( 'chapters', 'Chapters' ),
 					'aria-haspopup': 'true',
 					'aria-controls': this.mediaId + '-chapters-menu'
 				});
@@ -7838,19 +7935,18 @@ if (typeof module !== "undefined" && module.exports) {
 		if (context === 'timeline' || context === 'playpause' || context === 'init') {
 
 			textByState = {
-				'stopped': this.tt.statusStopped,
-				'paused': this.tt.statusPaused,
-				'playing': this.tt.statusPlaying,
-				'buffering': this.tt.statusBuffering,
-				'ended': this.tt.statusEnd
+				'stopped': this.translate( 'statusStopped', 'Stopped' ),
+				'paused': this.translate( 'statusPaused', 'Paused' ),
+				'playing': this.translate( 'statusPlaying', 'Playing' ),
+				'buffering': this.translate( 'statusBuffering', 'Buffering' ),
+				'ended': this.translate( 'statusEnd', 'End of track' )
 			};
 
 			if (this.stoppingYouTube) {
-				if (this.$status.text() !== this.tt.statusStopped) {
-					this.$status.text(this.tt.statusStopped);
+				if (this.$status.text() !== this.translate( 'statusStopped', 'Stopped' ) ) {
+					this.$status.text( this.translate( 'statusStopped', 'Stopped' ) );
 				}
 				this.getIcon( this.$playpauseButton, 'play' );
-				this.$playpauseButton.find('span.able-clipped').text(this.tt.play);
 			} else if (typeof this.$status !== 'undefined' && typeof this.seekBar !== 'undefined') {
 				this.getPlayerState().then(function(currentState) {
 					if (thisObj.$status.text() !== textByState[currentState] && !thisObj.seekBar.tracking) {
@@ -8050,7 +8146,7 @@ if (typeof module !== "undefined" && module.exports) {
 				this.captionsOn = false;
 				this.prefCaptions = 0;
 				ariaPressed = false;
-				this.updateCookie('prefCaptions');
+				this.updatePreferences('prefCaptions');
 				if (this.usingYouTubeCaptions) {
 					this.youTubePlayer.unloadModule('captions');
 				} else if (this.usingVimeoCaptions) {
@@ -8062,7 +8158,7 @@ if (typeof module !== "undefined" && module.exports) {
 				this.captionsOn = true;
 				this.prefCaptions = 1;
 				ariaPressed = true;
-				this.updateCookie('prefCaptions');
+				this.updatePreferences('prefCaptions');
 				if (this.usingYouTubeCaptions) {
 					this.youTubePlayer.loadModule('captions');
 				} else if (this.usingVimeoCaptions) {
@@ -8114,8 +8210,8 @@ if (typeof module !== "undefined" && module.exports) {
 				}
 			}
 		}
-		var ariaLabelOn = ( captions.length > 1 ) ? this.tt.captions : this.tt.showCaptions;
-		var ariaLabelOff = ( captions.length > 1 ) ? this.tt.captions : this.tt.hideCaptions;
+		var ariaLabelOn = ( captions.length > 1 ) ? this.translate( 'captions', 'Captions' ) : this.translate( 'showCaptions', 'Show captions' );
+		var ariaLabelOff = ( captions.length > 1 ) ? this.translate( 'captions', 'Captions' ) : this.translate( 'hideCaptions', 'Hide captions' );
 
 		this.toggleButtonState(
 			this.$ccButton,
@@ -8164,7 +8260,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 		this.descOn = !this.descOn;
 		this.prefDesc = + this.descOn; 
-		this.updateCookie('prefDesc');
+		this.updatePreferences('prefDesc');
 		if (typeof this.$descDiv !== 'undefined') {
 			if (!this.$descDiv.is(':hidden')) {
 				this.$descDiv.hide();
@@ -8216,17 +8312,12 @@ if (typeof module !== "undefined" && module.exports) {
 		}
 	};
 
-	AblePlayer.prototype.handleHelpClick = function() {
-		this.setFullscreen(false);
-		this.helpDialog.show();
-	};
-
 	AblePlayer.prototype.handleTranscriptToggle = function () {
 		var thisObj = this;
 		var visible = this.$transcriptDiv.is(':visible');
 		if ( visible ) {
 			this.$transcriptArea.hide();
-			this.toggleButtonState( this.$transcriptButton, ! visible, this.tt.hideTranscript, this.tt.showTranscript );
+			this.toggleButtonState( this.$transcriptButton, ! visible, this.translate( 'hideTranscript', 'Hide transcript' ), this.translate( 'showTranscript', 'Show transcript' ) );
 			this.prefTranscript = 0;
 			if ( this.transcriptType === 'popup' ) {
 				this.$transcriptButton.trigger('focus').addClass('able-focus');
@@ -8239,7 +8330,7 @@ if (typeof module !== "undefined" && module.exports) {
 				this.positionDraggableWindow('transcript');
 				this.$transcriptArea.show();
 				this.$transcriptPopup.hide();
-				this.toggleButtonState( this.$transcriptButton, ! visible, this.tt.hideTranscript, this.tt.showTranscript );
+				this.toggleButtonState( this.$transcriptButton, ! visible, this.translate( 'hideTranscript', 'Hide transcript' ), this.translate( 'showTranscript', 'Show transcript' ) );
 				this.prefTranscript = 1;
 				this.focusNotClick = true;
 				this.$transcriptArea.find('button').first().trigger('focus');
@@ -8247,11 +8338,11 @@ if (typeof module !== "undefined" && module.exports) {
 					thisObj.focusNotClick = false;
 				}, 100);
 			} else {
-				this.toggleButtonState( this.$transcriptButton, ! visible, this.tt.hideTranscript, this.tt.showTranscript );
+				this.toggleButtonState( this.$transcriptButton, ! visible, this.translate( 'hideTranscript', 'Hide transcript' ), this.translate( 'showTranscript', 'Show transcript' ) );
 				this.$transcriptArea.show();
 			}
 		}
-		this.updateCookie('prefTranscript');
+		this.updatePreferences('prefTranscript');
 	};
 
 	AblePlayer.prototype.handleSignToggle = function () {
@@ -8260,7 +8351,7 @@ if (typeof module !== "undefined" && module.exports) {
 		var visible = this.$signWindow.is(':visible');
 		if ( visible ) {
 			this.$signWindow.hide();
-			this.toggleButtonState( this.$signButton, ! visible, this.tt.hideSign, this.tt.showSign );
+			this.toggleButtonState( this.$signButton, ! visible, this.translate( 'hideSign', 'Hide sign language' ), this.translate( 'showSign', 'Show sign language' ) );
 			this.prefSign = 0;
 			this.$signButton.trigger('focus').addClass('able-focus');
 			setTimeout(function() {
@@ -8270,7 +8361,7 @@ if (typeof module !== "undefined" && module.exports) {
 			this.positionDraggableWindow('sign');
 			this.$signWindow.show();
 			this.$signPopup.hide();
-			this.toggleButtonState( this.$signButton, ! visible, this.tt.hideSign, this.tt.showSign );
+			this.toggleButtonState( this.$signButton, ! visible, this.translate( 'hideSign', 'Hide sign language' ), this.translate( 'showSign', 'Show sign language' ) );
 			this.prefSign = 1;
 			this.focusNotClick = true;
 			this.$signWindow.find('button').first().trigger('focus');
@@ -8278,20 +8369,8 @@ if (typeof module !== "undefined" && module.exports) {
 				thisObj.focusNotClick = false;
 			}, 100);
 		}
-		this.updateCookie('prefSign');
+		this.updatePreferences('prefSign');
 	};
-
-	AblePlayer.prototype.isFullscreen = function () {
-
-
-		if (this.nativeFullscreenSupported()) {
-			return (document.fullscreenElement ||
-					document.webkitFullscreenElement ||
-					document.webkitCurrentFullscreenElement ) ? true : false;
-		} else {
-			return this.modalFullscreenActive ? true : false;
-		}
-	}
 
 	AblePlayer.prototype.setFullscreen = function (fullscreen) {
 
@@ -8307,6 +8386,12 @@ if (typeof module !== "undefined" && module.exports) {
 				var scroll = {
 					x: window.pageXOffset || 0,
 					y: window.pageYOffset || 0
+				}
+				if (this.prefTranscript === 1) {
+					this.rePositionDraggableWindow("transcript");
+				}
+				if (this.prefSign === 1) {
+					this.rePositionDraggableWindow("sign");
 				}
 				this.scrollPosition = scroll;
 				if (el.requestFullscreen) {
@@ -8324,43 +8409,15 @@ if (typeof module !== "undefined" && module.exports) {
 				} else if (document.webkitCancelFullscreen) {
 					document.webkitCancelFullscreen();
 				}
+				if (this.prefTranscript === 1) {
+					this.positionDraggableWindow("transcript");
+				}
+				if (this.prefSign === 1) {
+					this.positionDraggableWindow("sign");
+				}
 				this.fullscreen = false;
 			}
 		} else {
-			if (!this.fullscreenDialog) {
-				var $dialogDiv = $('<div>');
-				var $fsDialogAlert = $('<p>',{
-					'class': 'able-screenreader-alert'
-				}).text(this.tt.fullScreen); 
-				$dialogDiv.append($fsDialogAlert);
-				this.fullscreenDialog = new AccessibleDialog($dialogDiv, this.$fullscreenButton, 'dialog', true, 'Fullscreen video player', $fsDialogAlert, this.tt.exitFullscreen, '100%', true, function () { thisObj.handleFullscreenToggle() });
-				$('body').append($dialogDiv);
-			}
-
-			var wasPaused = this.paused;
-
-			if (fullscreen) {
-				this.modalFullscreenActive = true;
-				this.fullscreenDialog.show();
-
-				this.$modalFullscreenPlaceholder = $('<div class="placeholder">');
-				this.$modalFullscreenPlaceholder.insertAfter($el);
-				$el.appendTo(this.fullscreenDialog.modal);
-
-				var newHeight = $(window).height() - this.$playerDiv.height();
-				if (typeof this.$descDiv !== 'undefined' && (!this.$descDiv.is(':hidden')) ) {
-					newHeight -= this.$descDiv.height();
-				}
-			} else {
-				this.modalFullscreenActive = false;
-				$el.insertAfter(this.$modalFullscreenPlaceholder);
-				this.$modalFullscreenPlaceholder.remove();
-				this.fullscreenDialog.hide();
-			}
-
-			if (!wasPaused && this.paused) {
-				this.playMedia();
-			}
 		}
 		$(document).on('fullscreenchange webkitfullscreenchange', function(e) {
 			if (!thisObj.fullscreen) {
@@ -8416,16 +8473,21 @@ if (typeof module !== "undefined" && module.exports) {
 
 		this.autoScrollTranscript = val; 
 		this.prefAutoScrollTranscript = +val; 
-		this.updateCookie('prefAutoScrollTranscript');
+		this.updatePreferences('prefAutoScrollTranscript');
 		this.refreshControls('transcript');
 	};
 
 	AblePlayer.prototype.getIcon = function( $button, id, forceImg = false ) {
-		$button.find('svg, img, span:not(.able-clipped)').remove();
-		var iconData = this.getIconData( id );
 		var iconType = this.iconType;
+		var iconData = this.getIconData( id );
 		iconType = ( null === iconData[3] ) ? 'svg' : iconType;
-		iconType =  ( forceImg === true ) ? 'image' : iconType;
+		iconType =  ( forceImg === true ) ? 'img' : iconType;
+
+		var existingIcon = $button.find( iconType + '#ableplayer-' + id );
+		if ( existingIcon.length > 0 ) {
+			return;
+		}
+		$button.find('svg, img, span').remove();
 
 		if (iconType === 'font') {
 			var $buttonIcon = $('<span>', {
@@ -8446,6 +8508,7 @@ if (typeof module !== "undefined" && module.exports) {
 			icon.setAttribute( 'focusable', 'false' );
 			icon.setAttribute( 'aria-hidden', 'true');
 			icon.setAttribute( 'viewBox', iconData[0] );
+			icon.setAttribute( 'id', 'ableplayer-' + id );
 			let path = getNode( 'path', { d: iconData[1] } );
 			icon.appendChild( path );
 
@@ -8464,8 +8527,6 @@ if (typeof module !== "undefined" && module.exports) {
 
 	AblePlayer.prototype.setText = function( $button, text ) {
 		$button.attr( 'aria-label', text );
-		$buttonLabel = $('<span>',{ 'class': 'able-clipped' }).text( text );
-		$button.append($buttonLabel);
 	};
 
 	AblePlayer.prototype.toggleButtonState = function($button, isOn, onLabel, offLabel, ariaPressed = false, ariaExpanded = false) {
@@ -8475,7 +8536,6 @@ if (typeof module !== "undefined" && module.exports) {
 		}
 		if (! isOn) {
 			$button.addClass('buttonOff').attr('aria-label', offLabel);
-			$button.find('span.able-clipped').text(offLabel);
 			if ( ariaPressed ) {
 				$button.attr('aria-pressed', 'false');
 			}
@@ -8484,7 +8544,6 @@ if (typeof module !== "undefined" && module.exports) {
 			}
 		} else {
 			$button.removeClass('buttonOff').attr('aria-label', onLabel);
-			$button.find('span.able-clipped').text(onLabel);
 			if ( ariaPressed ) {
 				$button.attr('aria-pressed', 'true');
 			}
@@ -8496,11 +8555,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 	AblePlayer.prototype.showTooltip = function($tooltip) {
 
-		if (($tooltip).is(':animated')) {
-			$tooltip.stop(true,true).show();
-		} else {
-			$tooltip.stop().show();
-		}
+		$tooltip.show();
 	};
 
 	AblePlayer.prototype.showAlert = function( msg, location = 'main' ) {
@@ -8523,7 +8578,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 		if (location !== 'screenreader') {
 			setTimeout( function () {
-				$alertBox.fadeOut(300);
+				$alertBox.hide();
 			}, 30000 );
 		}
 	};
@@ -8612,10 +8667,7 @@ if (typeof module !== "undefined" && module.exports) {
 				});
 			} else {
 				this.$media.removeAttr('width height');
-				this.$ableWrapper.css({
-					'width': newWidth + 'px',
-					'height': 'auto'
-				});
+				this.$ableWrapper.removeAttr( 'style' );
 			}
 		}
 		if (typeof this.$captionsDiv !== 'undefined') {
@@ -8637,7 +8689,6 @@ if (typeof module !== "undefined" && module.exports) {
 				'font-size': captionSize
 			});
 		}
-
 		this.refreshControls();
 	};
 
@@ -8888,7 +8939,7 @@ if (typeof module !== "undefined" && module.exports) {
       thisObj.waitThenFocus(thisObj.$ccButton);
 
       thisObj.prefCaptions = 1;
-      thisObj.updateCookie("prefCaptions");
+      thisObj.updatePreferences("prefCaptions");
       thisObj.refreshControls("captions");
     };
   };
@@ -8918,7 +8969,7 @@ if (typeof module !== "undefined" && module.exports) {
       thisObj.waitThenFocus(thisObj.$ccButton);
 
       thisObj.prefCaptions = 0;
-      thisObj.updateCookie("prefCaptions");
+      thisObj.updatePreferences("prefCaptions");
       if (!this.swappingSrc) {
         thisObj.refreshControls("captions");
         thisObj.updateCaption();
@@ -9011,23 +9062,23 @@ if (typeof module !== "undefined" && module.exports) {
 
     switch (pref) {
       case "prefCaptionsFont":
-        options[0] = ["serif", this.tt.serif];
-        options[1] = ["sans-serif", this.tt.sans];
-        options[2] = ["cursive", this.tt.cursive];
-        options[3] = ["fantasy", this.tt.fantasy];
-        options[4] = ["monospace", this.tt.monospace];
+        options[0] = ["serif", this.translate( 'serif', 'serif' )];
+        options[1] = ["sans-serif", this.translate( 'sans', 'sans-serif' )];
+        options[2] = ["cursive", this.translate( 'cursive', 'cursive' )];
+        options[3] = ["fantasy", this.translate( 'fantasy', 'fantasy' )];
+        options[4] = ["monospace", this.translate( 'monospace', 'monospace' )];
         break;
 
       case "prefCaptionsColor":
       case "prefCaptionsBGColor":
-        options[0] = ["white", this.tt.white];
-        options[1] = ["yellow", this.tt.yellow];
-        options[2] = ["green", this.tt.green];
-        options[3] = ["cyan", this.tt.cyan];
-        options[4] = ["blue", this.tt.blue];
-        options[5] = ["magenta", this.tt.magenta];
-        options[6] = ["red", this.tt.red];
-        options[7] = ["black", this.tt.black];
+        options[0] = ["white", this.translate( 'white', 'white' )];
+        options[1] = ["yellow", this.translate( 'yellow', 'yellow' )];
+        options[2] = ["green", this.translate( 'green', 'green' )];
+        options[3] = ["cyan", this.translate( 'cyan', 'cyan' )];
+        options[4] = ["blue", this.translate( 'blue', 'blue' )];
+        options[5] = ["magenta", this.translate( 'magenta', 'magenta' )];
+        options[6] = ["red", this.translate( 'red', 'red' )];
+        options[7] = ["black", this.translate( 'black', 'black' )];
         break;
 
       case "prefCaptionsSize":
@@ -9047,8 +9098,8 @@ if (typeof module !== "undefined" && module.exports) {
         break;
 
       case "prefCaptionsStyle":
-        options[0] = this.tt.captionsStylePopOn;
-        options[1] = this.tt.captionsStyleRollUp;
+        options[0] = this.translate( 'captionsStylePopOn', 'Pop-on' );
+        options[1] = this.translate( 'captionsStyleRollUp', 'Roll-up' );
         break;
 
       case "prefCaptionsPosition":
@@ -9192,9 +9243,9 @@ if (typeof module !== "undefined" && module.exports) {
 
 			this.$chaptersNav = $('<nav>');
 			if (this.chaptersTitle) {
-				this.$chaptersNav.attr('aria-labelledby',headingId);
+				this.$chaptersNav.attr( 'aria-labelledby', headingId );
 			} else {
-				this.$chaptersNav.attr('aria-label',this.tt.chapters);
+				this.$chaptersNav.attr( 'aria-label', this.translate( 'chapters', 'Chapters' ) );
 			}
 			this.$chaptersDiv.append(this.$chaptersNav);
 
@@ -9460,7 +9511,11 @@ if (typeof module !== "undefined" && module.exports) {
                   typeof showDuration !== "undefined" &&
                   !isNaN(showDuration)
                 ) {
-                  $(line).show().delay(showDuration).fadeOut();
+					$(line).show();
+					const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+					delay(showDuration).then(() => {
+						$(line).hide();
+					});
                 } else {
                   $(line).show();
                 }
@@ -9526,7 +9581,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 (function ($) {
   AblePlayer.prototype.setupTranscript = function () {
-    var deferred = new $.Deferred();
+    var deferred = new this.defer();
     var promise = deferred.promise();
 
     if (this.usingYouTubeCaptions || this.usingVimeoCaptions || this.hideTranscriptButton ) {
@@ -9566,7 +9621,7 @@ if (typeof module !== "undefined" && module.exports) {
     this.$transcriptArea = $("<div>", {
       class: "able-transcript-area",
       role: "dialog",
-      "aria-label": this.tt.transcriptTitle,
+      "aria-label": this.translate( 'transcriptTitle', 'Transcript' ),
     });
 
     this.$transcriptToolbar = $("<div>", {
@@ -9584,7 +9639,7 @@ if (typeof module !== "undefined" && module.exports) {
     });
     $autoScrollLabel = $("<label>", {
       for: "autoscroll-transcript-checkbox-" + this.mediaId,
-    }).text(this.tt.autoScroll);
+    }).text( this.translate( 'autoScroll', 'Auto scroll' ) );
 	$autoScrollContainer = $( '<div>', {
 		'class': 'autoscroll-transcript'
 	});
@@ -9600,7 +9655,7 @@ if (typeof module !== "undefined" && module.exports) {
       });
       $languageSelectLabel = $("<label>", {
         for: "transcript-language-select-" + this.mediaId,
-      }).text(this.tt.language);
+      }).text( this.translate( 'language', 'Language' ) );
       this.$transcriptLanguageSelect = $("<select>", {
         id: "transcript-language-select-" + this.mediaId,
       });
@@ -9668,7 +9723,7 @@ if (typeof module !== "undefined" && module.exports) {
     );
 
     if (typeof this.$transcriptLanguageSelect !== "undefined") {
-      this.$transcriptLanguageSelect.on("click mousedown", function (e) {
+      this.$transcriptLanguageSelect.on('click', function (e) {
         e.stopPropagation();
       });
 
@@ -9713,7 +9768,7 @@ if (typeof module !== "undefined" && module.exports) {
     });
     $autoScrollLabel = $("<label>", {
       for: "autoscroll-transcript-checkbox-" + this.mediaId,
-    }).text(this.tt.autoScroll);
+    }).text( this.translate( 'autoScroll', 'Auto scroll' ) );
 
     this.$autoScrollTranscriptCheckbox = $autoScrollInput;
     this.$transcriptToolbar.append(
@@ -9869,9 +9924,9 @@ if (typeof module !== "undefined" && module.exports) {
     if (typeof this.transcriptTitle !== "undefined") {
       transcriptTitle = this.transcriptTitle;
     } else if (this.lyricsMode) {
-      transcriptTitle = this.tt.lyricsTitle;
+      transcriptTitle = this.translate( 'lyricsTitle', 'Lyrics' );
     } else {
-      transcriptTitle = this.tt.transcriptTitle;
+      transcriptTitle = this.translate( 'transcriptTitle', 'Transcript' );
     }
 
     if (!this.transcriptDivLocation) {
@@ -10235,7 +10290,7 @@ if (typeof module !== "undefined" && module.exports) {
     if (this.searchDiv && this.searchString) {
       var cleanSearchString = DOMPurify.sanitize(this.searchString);
       if ($("#" + this.SearchDiv)) {
-        var searchStringHtml = "<p>" + this.tt.resultsSummary1 + " ";
+        var searchStringHtml = "<p>" + this.translate( 'resultsSummary1', 'You searched for:') + ' ';
         searchStringHtml +=
           '<span id="able-search-term-echo">' + cleanSearchString + "</span>";
         searchStringHtml += "</p>";
@@ -10247,19 +10302,16 @@ if (typeof module !== "undefined" && module.exports) {
           var $resultsSummary = $("<p>", {
             class: "able-search-results-summary",
           });
-          var resultsSummaryText = this.tt.resultsSummary2;
-          resultsSummaryText +=
-            " <strong>" + resultsArray.length + "</strong> ";
-          resultsSummaryText += this.tt.resultsSummary3 + " ";
-          resultsSummaryText += this.tt.resultsSummary4;
-          $resultsSummary.html(resultsSummaryText);
+          var resultsSummaryText = this.translate( 'resultsSummary2', 'Found %1 matching items.', [ '<strong>' + resultsArray.length + '</strong>' ] );
+          resultsSummaryText += ' ' + this.translate( 'resultsSummary3', 'Click the time associated with any item to play the video from that point.' );
+          $resultsSummary.html( resultsSummaryText );
           var $resultsList = $("<ul>");
           for (var i = 0; i < resultsArray.length; i++) {
             var resultId = "aria-search-result-" + i;
             var $resultsItem = $("<li>", {});
             var itemStartTime = this.secondsToTime(resultsArray[i]["start"]);
             var itemLabel =
-              this.tt.searchButtonLabel + " " + itemStartTime["title"];
+              this.translate( 'searchButtonLabel', 'Play at %1', [ itemStartTime["title"] ] );
             var itemStartSpan = $("<button>", {
               class: "able-search-results-time",
               "data-start": resultsArray[i]["start"],
@@ -10280,16 +10332,16 @@ if (typeof module !== "undefined" && module.exports) {
               class: "able-search-result-text",
               id: resultId,
             });
-            itemText.html("..." + resultsArray[i]["caption"] + "...");
+            itemText.html('...' + resultsArray[i]["caption"] + '...');
             $resultsItem.append(itemStartSpan, itemText);
             $resultsList.append($resultsItem);
           }
-          $("#" + this.searchDiv)
+          $('#' + this.searchDiv)
             .html(searchStringHtml)
             .append($resultsSummary, $resultsList);
         } else {
-          var noResults = $("<p>").text(this.tt.noResultsFound);
-          $("#" + this.searchDiv)
+          var noResults = $('<p>').text( this.translate( 'noResultsFound', 'No results found.' ) );
+          $('#' + this.searchDiv)
             .html(searchStringHtml)
             .append(noResults);
         }
@@ -10374,36 +10426,36 @@ if (typeof module !== "undefined" && module.exports) {
     if (hours > 0) {
       value += hours + ":";
       if (hours == 1) {
-        title += "1 " + this.tt.hour + " ";
+        title += "1 " + this.translate( 'hour', 'hour' ) + " ";
       } else {
-        title += hours + " " + this.tt.hours + " ";
+        title += hours + " " + this.translate( 'hours', 'hours' ) + " ";
       }
     }
     if (minutes < 10) {
       value += "0" + minutes + ":";
       if (minutes > 0) {
         if (minutes == 1) {
-          title += "1 " + this.tt.minute + " ";
+          title += "1 " + this.translate( 'minute', 'minute' ) + " ";
         } else {
-          title += minutes + " " + this.tt.minutes + " ";
+          title += minutes + " " + this.translate( 'minutes', 'minutes' ) + " ";
         }
       }
     } else {
       value += minutes + ":";
-      title += minutes + " " + this.tt.minutes + " ";
+      title += minutes + " " + this.translate( 'minutes', 'minutes' ) + " ";
     }
     if (seconds < 10) {
       value += "0" + seconds;
       if (seconds > 0) {
         if (seconds == 1) {
-          title += "1 " + this.tt.second + " ";
+          title += "1 " + this.translate( 'second', 'second' ) + " ";
         } else {
-          title += seconds + " " + this.tt.seconds + " ";
+          title += seconds + " " + this.translate( 'seconds', 'seconds' ) + " ";
         }
       }
     } else {
       value += seconds;
-      title += seconds + " " + this.tt.seconds + " ";
+      title += seconds + " " + this.translate( 'seconds', 'seconds' ) + " ";
     }
     var time = [];
     time["value"] = value;
@@ -10709,9 +10761,6 @@ if (typeof module !== "undefined" && module.exports) {
 					this.showingPrefsDialog = false;
 				}
 				break;
-			case 'help':
-				this.handleHelpClick();
-				break;
 			case 'transcript':
 				if ( !this.closingTranscript ) {
 					this.handleTranscriptToggle();
@@ -10725,8 +10774,6 @@ if (typeof module !== "undefined" && module.exports) {
 	};
 
 	AblePlayer.prototype.getButtonNameFromClass = function (classString) {
-
-
 		var classes, i;
 
 		classes = classString.split(' ');
@@ -10739,10 +10786,13 @@ if (typeof module !== "undefined" && module.exports) {
 	}
 
 	AblePlayer.prototype.okToHandleKeyPress = function () {
-
+		let defaultReturn = true;
+		if ( this.prefNoKeyShortcuts === 1 ) {
+			defaultReturn = false;
+		}
 		var activeElement = AblePlayer.getActiveDOMElement();
 
-		return ($(activeElement).prop('tagName') === 'INPUT') ? false : true;
+		return ($(activeElement).prop('tagName') === 'INPUT') ? false : defaultReturn;
 	};
 
 	AblePlayer.prototype.onPlayerKeyPress = function (e) {
@@ -10990,6 +11040,7 @@ if (typeof module !== "undefined" && module.exports) {
 	};
 
 	AblePlayer.prototype.addEventListeners = function () {
+
 		var thisObj = this;
 
 		$(window).on('resize',function () {
@@ -11144,17 +11195,22 @@ if (typeof module !== "undefined" && module.exports) {
 			$window = this.$transcriptArea;
 			windowName = 'transcript-window';
 			$toolbar = this.$transcriptToolbar;
-			$toolbar.attr( 'aria-label', this.tt.transcriptControls );
+			$toolbar.attr( 'aria-label', this.translate( 'transcriptControls', 'Transcript Window Controls' ) );
 		} else if (which === 'sign') {
 			$window = this.$signWindow;
 			windowName = 'sign-window';
 			$toolbar = this.$signToolbar;
-			$toolbar.attr( 'aria-label', this.tt.signControls );
+			$toolbar.attr( 'aria-label', this.translate( 'signControls', 'Sign Language Window Controls' ) );
 		}
 
 		$toolbar.addClass('able-draggable');
 		$toolbar.attr( 'role', 'application' );
 
+		$dragHandle = $('<div>',{
+			'class': 'able-drag-handle'
+		});
+
+		$dragHandle.html('<svg version="1.1" viewBox="262.48 487.5 675.03 225" xmlns="http://www.w3.org/2000/svg"><path d="m900 562.5h-600c-13.398 0-25.777-7.1484-32.477-18.75-6.6992-11.602-6.6992-25.898 0-37.5 6.6992-11.602 19.078-18.75 32.477-18.75h600c13.398 0 25.777 7.1484 32.477 18.75 6.6992 11.602 6.6992 25.898 0 37.5-6.6992 11.602-19.078 18.75-32.477 18.75z" fill="#fff"></path>  <path d="m900 712.5h-600c-13.398 0-25.777-7.1484-32.477-18.75-6.6992-11.602-6.6992-25.898 0-37.5 6.6992-11.602 19.078-18.75 32.477-18.75h600c13.398 0 25.777 7.1484 32.477 18.75 6.6992 11.602 6.6992 25.898 0 37.5-6.6992 11.602-19.078 18.75-32.477 18.75z" fill="#fff"></path></svg>');
 		$resizeHandle = $('<div>',{
 			'class': 'able-resizable'
 		});
@@ -11196,10 +11252,11 @@ if (typeof module !== "undefined" && module.exports) {
 		resizeZIndex = parseInt($window.css('z-index')) + 100;
 		$resizeHandle.css('z-index',resizeZIndex);
 		$window.append($resizeHandle);
+		$toolbar.append($dragHandle);
 
 		$resizeHandle.html($resizeHandle.html());
 
-		$toolbar.on('mousedown mouseup touchstart touchend', function(e) {
+		$dragHandle.on('mousedown mouseup touchstart touchend', function(e) {
 			e.stopPropagation();
 			if (e.type === 'mousedown' || e.type === 'touchstart' ) {
 				if (!thisObj.windowMenuClickRegistered) {
@@ -11241,7 +11298,6 @@ if (typeof module !== "undefined" && module.exports) {
 			}
 			thisObj.finishingDrag = false;
 		});
-
 		this.addWindowMenu(which,$window,windowName);
 	};
 
@@ -11265,7 +11321,7 @@ if (typeof module !== "undefined" && module.exports) {
 			'class': 'able-button-handler-preferences'
 		});
 		this.getIcon( $newButton, 'preferences' );
-		this.setText( $newButton, this.tt.windowButtonLabel );
+		this.setText( $newButton, this.translate( 'windowButtonLabel', 'Window options' ) );
 
 		tooltipId = this.mediaId + '-' + windowName + '-tooltip';
 		$tooltip = $('<div>',{
@@ -11302,7 +11358,7 @@ if (typeof module !== "undefined" && module.exports) {
 			this.$signToolbar.append($windowAlert,$newButton,$tooltip,$popup);
 		}
 
-		$newButton.on('click mousedown keydown',function(e) {
+		$newButton.on('click keydown',function(e) {
 
 			if (thisObj.focusNotClick) {
 				return false;
@@ -11313,6 +11369,7 @@ if (typeof module !== "undefined" && module.exports) {
 			}
 			e.stopPropagation();
 			if (!thisObj.windowMenuClickRegistered && !thisObj.finishingDrag) {
+
 				thisObj.handleWindowButtonClick(which, e);
 			}
 			thisObj.finishingDrag = false;
@@ -11325,7 +11382,8 @@ if (typeof module !== "undefined" && module.exports) {
 
 		var thisObj, $windowPopup, $windowButton, widthId, heightId,
 			$resizeForm, $resizeWrapper, $resizeWidthDiv, $resizeWidthInput, $resizeWidthLabel,
-			$resizeHeightDiv, $resizeHeightInput, $resizeHeightLabel, $saveButton, $cancelButton, newWidth, newHeight, resizeDialog;
+			$resizeHeightDiv, $resizeHeightInput, $resizeHeightLabel, $saveButton, $cancelButton,
+			newWidth, newHeight, resizeDialog;
 
 		thisObj = this;
 
@@ -11356,7 +11414,7 @@ if (typeof module !== "undefined" && module.exports) {
 		});
 		$resizeWidthLabel = $('<label>',{
 			'for': widthId
-		}).text(this.tt.width);
+		}).text( this.translate( 'width', 'Width' ) );
 
 		$resizeHeightDiv = $('<div></div>');
 		$resizeHeightInput = $('<input>',{
@@ -11367,15 +11425,15 @@ if (typeof module !== "undefined" && module.exports) {
 		});
 		$resizeHeightLabel = $('<label>',{
 			'for': heightId
-		}).text(this.tt.height);
+		}).text( this.translate( 'height', 'Height' ) );
 
-		$saveButton = $('<button class="modal-button">' + this.tt.save + '</button>');
-		$cancelButton = $('<button class="modal-button">' + this.tt.cancel + '</button>');
+		$saveButton = $('<button class="modal-button">' + this.translate( 'save', 'Save' ) + '</button>');
+		$cancelButton = $('<button class="modal-button">' + this.translate( 'cancel', 'Cancel' ) + '</button>');
 		$saveButton.on('click',function () {
 			newWidth = $('#' + widthId).val();
 			newHeight = $('#' + heightId).val();
 			thisObj.resizeObject(which,newWidth,newHeight);
-			thisObj.updateCookie(which);
+			thisObj.updatePreferences(which);
 
 			resizeDialog.hide();
 			$windowPopup.hide();
@@ -11394,7 +11452,12 @@ if (typeof module !== "undefined" && module.exports) {
 		$resizeForm.append($resizeWrapper,$resizeControls);
 
 		$('body').append($resizeForm);
-		resizeDialog = new AccessibleDialog($resizeForm, $windowButton, 'dialog', true, this.tt.windowResizeHeading, $resizeWrapper, this.tt.closeButtonLabel, '20em');
+		resizeDialog = new AccessibleDialog(
+			$resizeForm,
+			$windowButton,
+			this.translate( 'windowResizeHeading', 'Resize Window' ),
+			this.translate( 'closeButtonLabel', 'Close' ),
+		);
 		if (which === 'transcript') {
 			this.transcriptResizeDialog = resizeDialog;
 		} else if (which === 'sign') {
@@ -11407,7 +11470,6 @@ if (typeof module !== "undefined" && module.exports) {
 		var thisObj, $windowPopup, $windowButton, $toolbar, popupTop;
 
 		thisObj = this;
-
 		if (this.focusNotClick) {
 			return false;
 		}
@@ -11421,17 +11483,15 @@ if (typeof module !== "undefined" && module.exports) {
 			$windowButton = this.$signPopupButton;
 			$toolbar = this.$signToolbar;
 		}
-
 		if (e.type === 'keydown') {
 			if (e.key === ' ' || e.key === 'Enter') {
 				this.windowMenuClickRegistered = true;
 			} else if (e.key === 'Escape') {
 				if ($windowPopup.is(':visible')) {
-					$windowPopup.hide('fast', function() {
-						thisObj.windowMenuClickRegistered = false;
-						$windowPopup.find('li').removeClass('able-focus').attr('tabindex','-1');
-						$windowButton.trigger('focus');
-					});
+					$windowPopup.hide();
+					thisObj.windowMenuClickRegistered = false;
+					$windowPopup.find('li').removeClass('able-focus').attr('tabindex','-1');
+					$windowButton.trigger('focus');
 				} else {
 					if (which === 'sign') {
 						this.handleSignToggle();
@@ -11446,21 +11506,19 @@ if (typeof module !== "undefined" && module.exports) {
 			this.windowMenuClickRegistered = true;
 		}
 
-		if ($windowPopup.is(':visible')) {
-			$windowPopup.hide(200,'',function() {
-				thisObj.windowMenuClickRegistered = false; 
-			});
+		if ( $windowPopup.is(':visible') ) {
+			$windowPopup.hide();
+			thisObj.windowMenuClickRegistered = false; 
 			$windowPopup.find('li').removeClass('able-focus');
 			$windowButton.attr('aria-expanded','false').trigger('focus');
 		} else {
 			this.updateZIndex(which);
 			popupTop = $toolbar.outerHeight() - 1;
 			$windowPopup.css('top', popupTop);
-			$windowPopup.show(200,'',function() {
-				$windowButton.attr('aria-expanded','true');
-				$(this).find('li').first().trigger('focus').addClass('able-focus');
-				thisObj.windowMenuClickRegistered = false; 
-			});
+			$windowPopup.show();
+			$windowButton.attr('aria-expanded','true');
+			$(this).find('li').first().trigger('focus').addClass('able-focus');
+			thisObj.windowMenuClickRegistered = false; 
 		}
 	};
 
@@ -11497,12 +11555,12 @@ if (typeof module !== "undefined" && module.exports) {
 
 		if (e.type === 'keydown') {
 			if (e.key === 'Escape') { 
-				$windowPopup.hide('fast', function() {
-					thisObj.windowMenuClickRegistered = false;
-					$windowPopup.find('li').removeClass('able-focus').attr('tabindex','-1');
-					$windowButton.attr('aria-expanded','false');
-					$windowButton.trigger('focus');
-				});
+				$windowPopup.hide();
+				thisObj.windowMenuClickRegistered = false;
+				$windowPopup.find('li').removeClass('able-focus').attr('tabindex','-1');
+				$windowButton.attr('aria-expanded','false');
+				$windowButton.trigger('focus');
+
 				return false;
 			} else {
 				if (choice !== 'close') {
@@ -11512,11 +11570,11 @@ if (typeof module !== "undefined" && module.exports) {
 			}
 		}
 
-		$windowPopup.hide('fast', function() {
-			thisObj.windowMenuClickRegistered = false;
-			$windowPopup.find('li').removeClass('able-focus').attr('tabindex','-1');
-			$windowButton.attr('aria-expanded','false');
-		});
+		$windowPopup.hide();
+		thisObj.windowMenuClickRegistered = false;
+		$windowPopup.find('li').removeClass('able-focus').attr('tabindex','-1');
+		$windowButton.attr('aria-expanded','false');
+
 		if (choice !== 'close') {
 			$windowButton.trigger('focus');
 		}
@@ -11524,7 +11582,7 @@ if (typeof module !== "undefined" && module.exports) {
 			this.$activeWindow.attr('role','application');
 
 			if (!this.showedAlert(which)) {
-				this.showAlert(this.tt.windowMoveAlert,which);
+				this.showAlert( this.translate( 'windowMoveAlert', 'Drag or use arrow keys to move the window; Enter to stop' ),which);
 				if (which === 'transcript') {
 					this.showedTranscriptAlert = true;
 				} else if (which === 'sign') {
@@ -11619,8 +11677,6 @@ if (typeof module !== "undefined" && module.exports) {
 
 		var key, keySpeed;
 
-		var thisObj = this;
-
 		if (this.startingDrag) {
 			this.startingDrag = false;
 			return false;
@@ -11631,23 +11687,23 @@ if (typeof module !== "undefined" && module.exports) {
 		switch (key) {
 			case 'ArrowLeft':	
 				 this.dragKeyX -= keySpeed;
-				 this.$srAlertBox.text( this.tt.windowMoveLeft );
+				 this.$srAlertBox.text( this.translate( 'windowMoveLeft', 'Window moved left' ) );
 				break;
 			case 'ArrowUp':	
 				this.dragKeyY -= keySpeed;
-				this.$srAlertBox.text( this.tt.windowMoveUp );
+				this.$srAlertBox.text( this.translate( 'windowMoveUp', 'Window moved up' ) );
 				break;
 			case 'ArrowRight':	
 				this.dragKeyX += keySpeed;
-				this.$srAlertBox.text( this.tt.windowMoveRight );
+				this.$srAlertBox.text( this.translate( 'windowMoveRight', 'Window moved right' ) );
 				break;
 			case 'ArrowDown':	
 				this.dragKeyY += keySpeed;
-				this.$srAlertBox.text( this.tt.windowMoveDown );
+				this.$srAlertBox.text( this.translate( 'windowMoveDown', 'Window moved down' ) );
 				break;
 			case 'Enter': 	
 			case 'Escape': 	
-				this.$srAlertBox.text( this.tt.windowMoveStopped );
+				this.$srAlertBox.text( this.translate( 'windowMoveStopped', 'Window move stopped' ) );
 				this.endDrag(which);
 				return false;
 			default:
@@ -11709,7 +11765,7 @@ if (typeof module !== "undefined" && module.exports) {
 		}
 		this.dragging = false;
 
-		this.updateCookie(which);
+		this.updatePreferences(which);
 
 		this.startMouseX = undefined;
 		this.startMouseY = undefined;
@@ -11723,7 +11779,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 	AblePlayer.prototype.startResize = function(which, $element) {
 
-		var thisObj, $windowPopup, startPos, newWidth, newHeight;
+		var thisObj, $windowPopup, newWidth, newHeight;
 
 		thisObj = this;
 		this.$activeWindow = $element;
@@ -11770,7 +11826,7 @@ if (typeof module !== "undefined" && module.exports) {
 		this.resizing = false;
 		this.$activeWindow.removeClass('able-resize');
 
-		this.updateCookie(which);
+		this.updatePreferences(which);
 
 		this.windowMenuClickRegistered = false;
 		this.finishingDrag = true;
@@ -11821,16 +11877,21 @@ if (typeof module !== "undefined" && module.exports) {
 		signVideoId = this.mediaId + '-sign';
 
 		if ( this.signFile || this.signYoutubeId ) {
-			this.$signWindow = $('<div>',{
-				'class' : 'able-sign-window',
-				'role': 'dialog',
-				'aria-label': this.tt.sign
-			});
-			this.$signToolbar = $('<div>',{
-				'class': 'able-window-toolbar able-' + this.toolbarIconColor + '-controls'
-			});
+			if ( null !== this.$signDivLocation ) {
+				this.$signDivLocation.addClass( 'able-sign-window able-fixed' );
+				this.$signWindow = this.$signDivLocation;
+			} else {
+				this.$signWindow = $('<div>',{
+					'class' : 'able-sign-window',
+					'role': 'dialog',
+					'aria-label': this.translate( 'sign', 'Sign language' )
+				});
+				this.$signToolbar = $('<div>',{
+					'class': 'able-window-toolbar able-' + this.toolbarIconColor + '-controls'
+				});
+				this.$signWindow.append(this.$signToolbar);
+			}
 
-			this.$signWindow.append(this.$signToolbar);
 			this.$ableWrapper.append(this.$signWindow);
 		}
 
@@ -11869,10 +11930,14 @@ if (typeof module !== "undefined" && module.exports) {
 			this.signYoutube = this.initYouTubeSignPlayer();
 		}
 
-		this.initDragDrop('sign');
+		if ( null === this.$signDivLocation ) {
+			this.initDragDrop('sign');
+		}
 
 		if (this.prefSign === 1) {
-			this.positionDraggableWindow('sign',this.getDefaultWidth('sign'));
+			if ( null === this.$signDivLocation ) {
+				this.positionDraggableWindow('sign',this.getDefaultWidth('sign'));
+			}
 		} else {
 			this.$signWindow.hide();
 		}
@@ -11883,7 +11948,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 		var thisObj, deferred, promise;
 		thisObj = this;
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 
 		this.youTubeSignPlayerReady = false;
@@ -11893,10 +11958,10 @@ if (typeof module !== "undefined" && module.exports) {
 				deferred.resolve();
 			});
 		} else {
-			if (!AblePlayer.loadingYouTubeIframeAPI) {
-				$.getScript('https://www.youtube.com/iframe_api').fail(function () {
-					deferred.fail();
-				});
+			if ( ! AblePlayer.loadingYouTubeIframeAPI ) {
+				thisObj.getScript('https://www.youtube.com/iframe_api', function () {
+
+									});
 			}
 
 			$('body').on('youTubeIframeAPIReady', function () {
@@ -11912,7 +11977,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 		var deferred, promise, thisObj, containerId, ccLoadPolicy, autoplay;
 
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 		thisObj = this;
 		containerId = this.mediaId + '_youtube_sign';
@@ -11946,10 +12011,10 @@ if (typeof module !== "undefined" && module.exports) {
 					deferred.resolve();
 				},
 				onError: function (x) {
-					deferred.fail();
+					deferred.reject();
 				},
 				onStateChange: function (x) {
-					thisObj.getPlayerState().then(function(playerState) {
+					thisObj.getPlayerState().then(function() {
 					});
 				},
 				onApiChange: function() {
@@ -12958,33 +13023,70 @@ if (typeof module !== "undefined" && module.exports) {
 })(jQuery);
 (function ($) {
 	AblePlayer.prototype.getSupportedLangs = function() {
-		var langs = ['ca','cs','da','de','en','es','fr','he','id','it','ja','ms','nb','nl','pl','pt','pt-br','sv','tr','zh-tw'];
+		var langs = {
+			'ca'    : 'Catalan',
+			'cs'    : 'Czech',
+			'da'    : 'Danish',
+			'de'    : 'German',
+			'en'    : 'English',
+			'es'    : 'Spanish',
+			'fr'    : 'French',
+			'he'    : 'Hebrew',
+			'id'    : 'Indonesian',
+			'it'    : 'Italian',
+			'ja'    : 'Japanese',
+			'ms'    : 'Malay',
+			'nb'    : 'Norwegian Bokmål',
+			'nl'    : 'Dutch',
+			'pl'    : 'Polish',
+			'pt'    : 'Portuguese',
+			'pt-br' : 'Brazilian Portuguese',
+			'sv'    : 'Swedish',
+			'tr'    : 'Turkish',
+			'zh-tw' : 'Chinese (Taiwan)'
+		};
+
 		return langs;
 	};
+
+	AblePlayer.prototype.translate = function( key, fallback, args = Array() ) {
+		let translation = '';
+		if ( this.tt[ key ] ) {
+			translation = this.tt[ key ];
+		} else {
+			translation = fallback;
+		}
+		if ( args.length > 0 ) {
+			args.forEach( ( val, index ) => {
+				let ref = index + 1;
+				translation = translation.replace( '%' + ref, val );
+			});
+		}
+
+		return translation;
+	}
 
 	AblePlayer.prototype.getTranslationText = function() {
 
 		var deferred, thisObj, supportedLangs, docLang, translationFile, i,	similarLangFound;
-		deferred = $.Deferred();
+		deferred = new this.defer();
 		thisObj = this;
 
 		supportedLangs = this.getSupportedLangs(); 
 
 		if (this.lang) { 
-			if ($.inArray(this.lang,supportedLangs) === -1) {
-				if (this.lang.indexOf('-') == 2) {
-					this.lang = ($.inArray(this.lang.substring(0,2),supportedLangs) !== -1) ? this.lang.substring(0,2) : null;
+			if ( Object.hasOwn( supportedLangs,this.lang ) ) {
+				if ( this.lang.indexOf('-') == 2 ) {
+					this.lang = ( Object.hasOwn(supportedLangs,this.lang.substring(0,2)) !== -1 ) ? this.lang.substring(0,2) : null;
 				} else {
 					similarLangFound = false;
-					i = 0;
-					while (i < supportedLangs.length) {
-						if (supportedLangs[i].substring(0,2) == this.lang) {
+					for ( const [key,value] of Object.entries(supportedLangs) ) {
+						if ( key.substring(0,2) == this.lang ) {
 							this.lang = supportedLangs[i];
 							similarLangFound = true;
 						}
-						i++;
 					}
-					if (!similarLangFound) {
+					if ( !similarLangFound ) {
 						this.lang = null;
 					}
 				}
@@ -13000,11 +13102,11 @@ if (typeof module !== "undefined" && module.exports) {
 				docLang = null;
 			}
 			if (docLang) {
-				if ($.inArray(docLang,supportedLangs) !== -1) {
+				if ( Object.hasOwn( supportedLangs,docLang ) ) {
 					this.lang = docLang;
 				} else {
 					if (docLang.indexOf('-') == 2) {
-						if ($.inArray(docLang.substring(0,2),supportedLangs) !== -1) {
+						if ( Object.hasOwn(supportedLangs,docLang.substring(0,2)) ) {
 							this.lang = docLang.substring(0,2);
 						}
 					}
@@ -13020,45 +13122,61 @@ if (typeof module !== "undefined" && module.exports) {
 			this.searchLang = this.lang;
 		}
 		translationFile = this.rootPath + 'translations/' + this.lang + '.json';
-		$.getJSON(translationFile, function(data) {
-			thisObj.tt = data;
-			deferred.resolve();
-		})
-		.fail(function() {
-
-						translationFile = thisObj.rootPath + 'translations/' + thisObj.lang + '.js';
-			$.getJSON(translationFile, function(data) {
+		fetch(translationFile)
+			.then( response => {
+				return response.json();
+			})
+			.then( data => {
 				thisObj.tt = data;
+				thisObj.translationFiles = true;
 				deferred.resolve();
 			})
-			.fail( function() {
+			.catch( error => {
 
-								thisObj.provideFallback();
-				deferred.fail();
+								translationFile = thisObj.rootPath + 'translations/' + thisObj.lang + '.js';
+				fetch(translationFile)
+					.then( response => {
+						return response.json();
+					})
+					.then( data => {
+						thisObj.tt = data;
+						thisObj.translationFiles = true;
+						deferred.resolve();
+					})
+					.catch( error => {
+
+												thisObj.tt = {};
+						thisObj.translationFiles = false;
+						deferred.resolve();
+					});
 			});
-		})
 		return deferred.promise();
 	};
 
 	AblePlayer.prototype.getSampleDescriptionText = function() {
+		if ( ! this.translationFiles ) {
+			this.sampleText = [];
+			let translation = { 'lang':'en', 'text': this.translate( 'sampleDescriptionText', 'Adjust settings to hear this sample text.' ) };
+			this.sampleText.push(translation);
+		} else {
+			var thisObj, supportedLangs, thisLang, translationFile, thisText, translation;
 
-		var thisObj, supportedLangs, i, thisLang, translationFile, thisText, translation;
+			supportedLangs = this.getSupportedLangs();
+			thisObj = this;
 
-		supportedLangs = this.getSupportedLangs();
-
-		thisObj = this;
-
-		this.sampleText = [];
-		for (i=0; i < supportedLangs.length; i++) {
-			translationFile = this.rootPath + 'translations/' + supportedLangs[i] + '.json';
-			$.getJSON(translationFile, thisLang, (function(thisLang) {
-					return function(data) {
+			this.sampleText = [];
+			for ( const [key,value] of Object.entries(supportedLangs) ) {
+				translationFile = this.rootPath + 'translations/' + key + '.json';
+				fetch(translationFile)
+					.then( response => {
+						return response.json();
+					})
+					.then( data => {
 						thisText = data.sampleDescriptionText;
 						translation = {'lang':thisLang, 'text': thisText};
 						thisObj.sampleText.push(translation);
-					};
-				}(supportedLangs[i])) 
-			);
+					});
+			}
 		}
 	};
 
@@ -13067,7 +13185,6 @@ if (typeof module !== "undefined" && module.exports) {
 
 (function ($) {
 	AblePlayer.prototype.injectVTS = function() {
-
 
 		var thisObj, $heading, $instructions, $p1, $p2, $ul, $li1, $li2, $li3,
 		$fieldset, $legend, i, $radioDiv, radioId, $label, $radio, $saveButton, $savedTable;
@@ -13081,7 +13198,8 @@ if (typeof module !== "undefined" && module.exports) {
 
 				this.vtsLang = this.lang;
 
-				$heading = $('<h2>').text('Video Transcript Sorter'); 
+				let heading = this.translate( 'vtsHeading', 'Video Transcript Sorter' );
+				$heading = $('<h2>').text( heading ); 
 				$('#able-vts').append($heading);
 
 				this.$vtsAlert = $('<div>',{
@@ -13094,18 +13212,18 @@ if (typeof module !== "undefined" && module.exports) {
 				$instructions = $('<div>',{
 					'id': 'able-vts-instructions'
 				});
-				$p1 = $('<p>').text('Use the Video Transcript Sorter to modify text tracks:');
+				$p1 = $('<p>').text( this.translate( 'vtsInstructions1', 'Use the Video Transcript Sorter to modify text tracks:' ) );
 				$ul = $('<ul>');
-				$li1 = $('<li>').text('Reorder chapters, descriptions, captions, and/or subtitles so they appear in the proper sequence in Able Player\'s auto-generated transcript.');
-				$li2 = $('<li>').text('Modify content or start/end times (all are directly editable within the table).');
-				$li3 = $('<li>').text('Add new content, such as chapters or descriptions.');
-				$p2 = $('<p>').text('After editing, click the "Save Changes" button to generate new content for all relevant timed text files. The new text can be copied and pasted into new WebVTT files.');
+				$li1 = $('<li>').text( this.translate( 'vtsInstructions2', 'Reorder chapters, descriptions, captions, and/or subtitles so they appear in the proper sequence in Able Player\'s auto-generated transcript.' ) );
+				$li2 = $('<li>').text( this.translate( 'vtsInstructions3', 'Modify content or start/end times (all are directly editable within the table).' ) );
+				$li3 = $('<li>').text( this.translate( 'vtsInstructions4', 'Add new content, such as chapters or descriptions.' ) );
+				$p2 = $('<p>').text( this.translate( 'vtsInstructions5', 'After editing, click the "Save Changes" button to generate new content for all relevant timed text files. The new text can be copied and pasted into new WebVTT files.' ) );
 				$ul.append($li1,$li2,$li3);
 				$instructions.append($p1,$ul,$p2);
 				$('#able-vts').append($instructions);
 
 				$fieldset = $('<fieldset>');
-				$legend = $('<legend>').text('Select a language'); 
+				$legend = $('<legend>').text( this.translate( 'vtsSelectLanguage', 'Select a language' ) );
 				$fieldset.append($legend);
 				$fieldWrapper = $( '<div class="vts-lang-selector"></div>' );
 				for (i in this.langs) {
@@ -13133,12 +13251,12 @@ if (typeof module !== "undefined" && module.exports) {
 				}
 				$fieldset.append( $fieldWrapper );
 				$('#able-vts').append($fieldset);
-
+				let vtsSave = this.translate( 'vtsSave', 'Generate new .vtt content' );
 				$saveButton = $('<button>',{
 					'type': 'button',
 					'id': 'able-vts-save',
 					'value': 'save'
-				}).text('Save Changes'); 
+				}).text( vtsSave );
 				$('#able-vts').append($saveButton);
 
 				this.injectVtsTable('add',this.vtsLang);
@@ -13174,7 +13292,7 @@ if (typeof module !== "undefined" && module.exports) {
 				$('#able-vts-save').on('click',function(e) {
 					e.stopPropagation();
 					if ($(this).attr('value') == 'save') {
-						$(this).attr('value','cancel').text('Return to Editor'); 
+						$(this).attr('value','cancel').text( thisObj.translate( 'vtsReturn', 'Return to Editor' ) );
 						$savedTable = $('#able-vts table');
 						$('#able-vts-instructions').hide();
 						$('#able-vts > fieldset').hide();
@@ -13182,13 +13300,13 @@ if (typeof module !== "undefined" && module.exports) {
 						$('#able-vts-icon-credit').remove();
 						thisObj.parseVtsOutput($savedTable);
 					} else {
-						$(this).attr('value','save').text('Save Changes'); 
+						$(this).attr('value','save').text( vtsSave );
 						$('#able-vts-output').remove();
 						$('#able-vts-instructions').show();
 						$('#able-vts > fieldset').show();
 						$('#able-vts').append($savedTable);
 						$('#able-vts').append(thisObj.getIconCredit());
-						thisObj.showVtsAlert('Cancelling saving. Any edits you made have been restored in the VTS table.'); 
+						thisObj.showVtsAlert( thisObj.translate( 'vtsCancel', 'Cancelling saving. Any edits you made have been restored in the VTS table.' ) );
 					}
 				});
 			}
@@ -13196,7 +13314,6 @@ if (typeof module !== "undefined" && module.exports) {
 	};
 
 	AblePlayer.prototype.setupVtsTracks = function(kind, lang, trackDesc, label, src, contents) {
-
 
 		var srcFile, vtsCues;
 
@@ -13308,11 +13425,16 @@ if (typeof module !== "undefined" && module.exports) {
 		$table = $('<table>',{
 			'lang': lang
 		});
-		$thead = $('<thead>');
-		$tr = $('<tr>',{
-			'lang': 'en' 
-		});
-		headers = ['Row','Kind','Start','End','Content','Actions']; 
+		$thead = $( '<thead>' );
+		$tr = $( '<tr>' );
+		headers = [
+			this.translate( 'vtsRow', 'Row' ),
+			this.translate( 'vtsKind', 'Kind' ),
+			this.translate( 'vtsStart', 'Start' ),
+			this.translate( 'vtsEnd', 'End' ),
+			this.translate( 'vtsContent', 'Content' ),
+			this.translate( 'vtsActions', 'Actions' )
+		];
 		for (i=0; i < headers.length; i++) {
 			$th = $('<th>', {
 				'scope': 'col'
@@ -13666,7 +13788,8 @@ if (typeof module !== "undefined" && module.exports) {
 
 		this.adjustTimes(newRowNum);
 
-		this.showVtsAlert('A new row ' + newRowNum + ' has been inserted'); 
+		let newAlert = this.translate( 'vtsNewRow', 'A new row %1 has been inserted.', [ newRowNum ] );
+		this.showVtsAlert( newAlert );
 
 		$select.trigger('focus');
 
@@ -13689,7 +13812,8 @@ if (typeof module !== "undefined" && module.exports) {
 			this.updateVtsActionButtons($buttons,nextRowNum);
 		}
 
-		this.showVtsAlert('Row ' + rowNum + ' has been deleted'); 
+		let newAlert = this.translate( 'vtsDeletedRow', 'Row %1 has been deleted.', [ rowNum ] );
+		this.showVtsAlert( newAlert );
 
 	};
 
@@ -13717,8 +13841,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 		this.adjustTimes(otherRowNum);
 
-		msg = 'Row ' + rowNum + ' has been moved ' + direction;
-		msg += ' and is now Row ' + otherRowNum;
+		msg = this.translate( 'vtsMovedRow', 'Row %1 has been moved %2 and is now Row %3.', [ rowNum, direction, otherRowNum ] );
 		this.showVtsAlert(msg);
 	};
 
@@ -13845,7 +13968,11 @@ if (typeof module !== "undefined" && module.exports) {
 
 	AblePlayer.prototype.showVtsAlert = function(message) {
 
-		this.$vtsAlert.text(message).show().delay(3000).fadeOut('slow');
+		const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+		this.$vtsAlert.text(message).show();
+		delay(10000).then(() => {
+			this.$vtsAlert.text(message).hide()
+		});
 	};
 
 	AblePlayer.prototype.parseVtsOutput = function($table) {
@@ -13866,7 +13993,7 @@ if (typeof module !== "undefined" && module.exports) {
 				if ($.inArray(kind,kinds) !== -1) {
 					start = $rows.eq(i).find('td').eq(2).text();
 					end = $rows.eq(i).find('td').eq(3).text();
-					content = $rows.eq(i).find('td').eq(4).text();
+					content = $rows.eq(i).find('td').eq(4)[0].innerText;
 					if (start !== undefined && end !== undefined) {
 						vtt[kind] += start + ' --> ' + end + "\n";
 						if (content !== 'undefined') {
@@ -13915,10 +14042,10 @@ if (typeof module !== "undefined" && module.exports) {
 
 	AblePlayer.prototype.initVimeoPlayer = function () {
 
-		var thisObj, deferred, promise, containerId, vimeoId, autoplay, options;
+		var thisObj, deferred, promise, containerId, vimeoId, options;
 		thisObj = this;
 
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 
 		containerId = this.mediaId + '_vimeo';
@@ -13998,7 +14125,7 @@ if (typeof module !== "undefined" && module.exports) {
 	AblePlayer.prototype.getVimeoPaused = function () {
 
 		var deferred, promise;
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 
 		this.vimeoPlayer.getPaused().then(function (paused) {
@@ -14011,7 +14138,7 @@ if (typeof module !== "undefined" && module.exports) {
 	AblePlayer.prototype.getVimeoEnded = function () {
 
 		var deferred, promise;
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 
 		this.vimeoPlayer.getEnded().then(function (ended) {
@@ -14023,11 +14150,9 @@ if (typeof module !== "undefined" && module.exports) {
 
 	AblePlayer.prototype.getVimeoState = function () {
 
-		var thisObj, deferred, promise, promises, gettingPausedPromise, gettingEndedPromise;
+		var deferred, promise, promises, gettingPausedPromise, gettingEndedPromise;
 
-		thisObj = this;
-
-		deferred = new $.Deferred();
+		deferred = new this.defer();
 		promise = deferred.promise();
 		promises = [];
 
@@ -14051,10 +14176,10 @@ if (typeof module !== "undefined" && module.exports) {
 
 	AblePlayer.prototype.getVimeoCaptionTracks = function () {
 
-		var deferred = new $.Deferred();
+		var deferred = new this.defer();
 		var promise = deferred.promise();
 
-		var thisObj, i, trackId, isDefaultTrack;
+		var thisObj, i, isDefaultTrack;
 
 		thisObj = this;
 
@@ -14100,19 +14225,22 @@ if (typeof module !== "undefined" && module.exports) {
 
 	AblePlayer.prototype.getVimeoPosterUrl = function (vimeoId, width) {
 
+		var url = 'http://vimeo.com/api/oembed.json?url=https://vimeo.com/' + vimeoId, imageUrl = '';
 
+				fetch( url ).then( response => {
 
-		var url = 'https://img.youtube.com/vi/' + youTubeId;
-		if (width == '120') {
-			return url + '/default.jpg';
-		} else if (width == '320') {
-			return url + '/hqdefault.jpg';
-		} else if (width == '480') {
-			return url + '/hqdefault.jpg';
-		} else if (width == '640') {
-			return url + '/sddefault.jpg';
-		}
-		return false;
+			return response.json();
+  		})
+		.then( json => {
+			imageUrl = json.thumbnail_url;
+		})
+		.catch( error => {
+			if (thisObj.debug) {
+
+							}
+		});
+
+		return imageUrl;
 	};
 
 	AblePlayer.prototype.getVimeoId = function (url) {
