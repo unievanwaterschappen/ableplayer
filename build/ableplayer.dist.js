@@ -2512,7 +2512,7 @@
 			}
 
 			document.querySelectorAll( 'video,audio' ).forEach( ( element ) => {
-				if ( element.dataset.ablePlayer !== undefined && ( element.dataset.autoload === undefined || element.dataset.autoload !== false ) ) {
+				if ( element.dataset.ablePlayer !== undefined && ( element.dataset.autoload === undefined || element.dataset.autoload !== 'false' ) ) {
 					new AblePlayer( $( element ) );
 				}
 			} );
