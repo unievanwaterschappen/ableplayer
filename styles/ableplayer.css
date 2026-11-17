@@ -21,7 +21,7 @@
  * 	.able-transcript-area = 7000
  *
  * Player controls: (5000 - 6000)
- * 	.able-controller div[role="button"] = 6600
+ * 	.able-controller button = 6600
  * 	.able-big-play-button = 6500
  *	.able-seekbar = 6500
  * 	div.able-captions-wrapper = 6000
@@ -49,15 +49,7 @@
 	--able-light-orange: #ffbb37;
 	--able-bright-green: #8ab839;
 	--able-light-pink: #fee;
-}
-
-.able-modal-overlay,
-.able-playlist,
-.able-search-results,
-.able-chapters-div,
-.able-modal-dialog,
-.able-transcript-area,
-.able-wrapper {
+	/* Able player variable assignments. */
 	--able-base-control-size: 24px;
 	--able-color: var(--able-white);
 	--able-control-background: var(--able-black);
@@ -88,9 +80,8 @@
 	--able-modal-overlay: var(--able-transparent-gray);
 	--able-modal-border: 3px solid var(--able-light-gray);
 	--able-drag-outline: var(--able-bright-orange);
-	--able-sign-background: var(--able-white);
+	--able-sign-background: var(--able-black);
 	--able-sign-border: var(--able-black);
-	--able-resizable-color: var(--able-medium-gray);
 	--able-chapter-background: transparent;
 	--able-chapter-color: var(--able-black);
 	--able-current-chapter-background: var(--able-black);
@@ -108,6 +99,7 @@
 	--able-menu-focus-background: var(--able-very-light-gray);
 	--able-menu-focus-color: var(--able-black);
 	--able-transcript-background: var(--able-white);
+	--able-transcript-color: var(--able-dark-gray);
 	--able-cue-audio-description-background: var(--able-light-pink);
 	--able-cue-audio-description-color: var(--able-dark-gray);
 	--able-cue-highlighted-background: var(--able-black);
@@ -188,6 +180,10 @@
 	margin: 0 6px;
 }
 
+.able-captions-container {
+	background: var(--able-control-background);
+}
+
 .able .able-vidcap-container {
 	left: 0;
 	margin: 0;
@@ -222,8 +218,9 @@
 
 .able-controller {
 	position: relative;
-	background-color: var(--able-controller-background); /* background color of controller bar */
-	padding: 0 4px;
+	background-color: var(--able-controller-background);
+	padding: 8px 4px 4px;
+	border: 1px solid var(--able-controller-background);
 }
 
 .able-audio .able-controller {
@@ -232,6 +229,10 @@
 
 .able-skin-legacy .able-controller {
 	padding: 0;
+}
+
+.ableplayer-clear {
+	clear: both;
 }
 
 .able-poster {
@@ -246,6 +247,7 @@
 	overflow: visible;
 }
 
+video[data-able-player],
 .able .able-vidcap-container video {
 	max-width: 100%;
 	width: 100%;
@@ -257,10 +259,14 @@
 .able-media-container iframe {
 	max-width: 100% !important;
 	display: block !important;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 16 / 9;
 }
 
 /* Controller Buttons & Controls */
-.able-wrapper .able button.able-big-play-button {
+.able-wrapper .able button.able-big-play-button,
+.able-wrapper .able button.able-big-play-button:not(:hover):not(:focus):not(:active) {
 	position: absolute;
 	color: var(--able-control-color);
 	background-color: var(--able-big-play-background);
@@ -297,7 +303,7 @@
 
 .able-wrapper .able button.able-big-play-button:hover,
 .able-wrapper .able button.able-big-play-button:focus {
-	opacity: 100;
+	opacity: 1;
 }
 
 .able-big-play-button svg {
@@ -329,8 +335,7 @@
 }
 
 .able-controller,
-.able-controller button,
-.able-controller div[role="button"]{
+.able-controller button {
 	color: var(--able-control-color);
 }
 
@@ -342,8 +347,19 @@
 	border: 1px solid var(--able-seekbar-border);
 }
 
-.able-controller div[role="button"] {
+.able-seekbar .able-tooltip {
+	bottom: 12px;
+}
+
+.able-controller .able-seekbar:hover {
+	outline: 2px solid var(--able-hover-outline);
+	outline-offset: 2px;
+}
+.able-controller button,
+.able-controller button:not(:hover):not(:focus):not(:active) {
+	all: unset;
 	background: none;
+	background-color: none;
 	position: relative;
 	padding: 2px;
 	min-width: var(--able-base-control-size);
@@ -357,14 +373,16 @@
 	align-items: center;
 	z-index: 6600;
 	border-radius: 3px;
+	box-sizing: border-box;
+	outline-offset: 0;
 }
 
-.able-controller div.able-button-handler-play[role="button"] {
+.able-controller div.able-button-handler-play button {
 	/* The icon appears too large if this button doesn't have padding. */
 	padding: 4px;
 }
 
-.able-controller .buttonOff {
+.able-controller .buttonOff svg {
 	opacity: 0.5;
 }
 
@@ -383,8 +401,8 @@
 	display: flex;
 	align-items: center;
 	position: relative;
-	height: 0.5rem;
-	border: 1px solid;
+	height: 0.75rem;
+	border-radius: 3px;
 	background-color: var(--able-seekbar-background);
 	z-index: 6500;
 }
@@ -414,6 +432,7 @@
 	position: relative;
 	left: 0;
 	background-color: var(--able-seekbar-head);
+	border: 1px solid var(--able-seekbar-head);
 	min-width: var(--able-base-control-size);
 	min-height: var(--able-base-control-size);
 	width: .875rem;
@@ -451,17 +470,22 @@
 .able-volume-slider input[type=range]::-moz-range-track {
 	border: 1px solid #fff;
 	width: 7px;
+	height: 100%;
 	cursor: pointer;
 	background: #000;
+	box-shadow: none;
+	border-radius: 3px;
 }
 
-input[type=range]::-moz-range-thumb {
+.able-volume-slider input[type=range]::-moz-range-thumb {
 	background-color: var(--able-control-color);
 	outline: 1px solid var(--able-volume-outline);
 	outline-offset: -2px;
 	height: var(--able-base-control-size);
 	width: var(--able-base-control-size);
 	border-radius: 100%;
+	box-shadow: none;
+	border: 1px solid var(--able-volume-outline);
 }
 
 /* Status Bar */
@@ -628,9 +652,11 @@ div.able-modal-overlay {
 	gap: 8px;
 }
 
+.able-alert button,
 .able-modal-dialog .modalCloseButton {
-	margin: 0;
-	align-self: flex-start;
+	width: 24px;
+	height: 24px;
+	padding: 2px;
 }
 
 div.able-modal-dialog h1 {
@@ -669,10 +695,15 @@ div.able-modal-dialog h1 {
 	margin-bottom: .25rem;
 }
 
+.able-prefs-descriptions > div:empty,
+.able-prefs-captions > div:empty {
+	margin-bottom: 0;
+}
+
 .able-prefs-descriptions label,
 .able-prefs-captions label {
 	text-align: end;
-	width: 10rem;
+	width: 12rem;
 }
 
 .able-prefs-checkbox label {
@@ -682,6 +713,12 @@ div.able-modal-dialog h1 {
 .able-prefs-descriptions select,
 .able-prefs-captions select {
 	width: 10rem;
+}
+
+.able-prefs-captions .able-prefCaptionsSpeak:not(:empty) {
+	border-top: 1px solid var(--able-medium-light-gray);
+	margin-top: .5rem;
+	padding-top: .5rem;
 }
 
 div.able-prefDescPause {
@@ -760,6 +797,9 @@ span.able-modkey {
 	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
+	z-index: 8002;
+	position: relative;
+	border-bottom: 1px solid var(--able-controller-background);
 }
 
 .able-window-toolbar button {
@@ -779,7 +819,10 @@ span.able-modkey {
 .able-window-toolbar .able-drag-handle {
 	order: 2;
 	width: 100%;
-	height: 100%;
+	height: 24px;
+	touch-action: none;
+	display: flex;
+	align-items: center;
 }
 
 .able-window-toolbar .able-drag-handle svg {
@@ -792,8 +835,13 @@ span.able-modkey {
 	fill: var(--able-medium-light-gray);
 }
 
-.able-draggable:hover .able-drag-handle path {
+.able-draggable .able-drag-handle:hover path {
 	fill: var(--able-very-light-gray);
+}
+
+.able-draggable .able-drag-handle:hover {
+	background: rgb( 0,0,0,.1);
+	outline: 1px dashed var(--able-very-light-gray);
 }
 
 .able-window-toolbar > div {
@@ -851,11 +899,22 @@ span.able-modkey {
 	right: 0;
 	padding: 1px;
 	cursor: nwse-resize;
+	touch-action: none;
+	z-index: 8002;
 }
 
-.able-resizable svg line {
-	stroke: var(--able-resizable-color);
-	stroke-width: 2px;
+.able-resizable svg {
+	fill: var(--able-medium-light-gray);
+}
+.able-transcript-area .able-resizable svg {
+	fill: var(--able-medium-gray);
+}
+
+.able-resizable:hover svg {
+	fill: var(--able-white);
+}
+.able-transcript-area .able-resizable:hover svg {
+	fill: var(--able-black);
 }
 
 /* Sign Language Window */
@@ -864,6 +923,13 @@ span.able-modkey {
 	z-index: 8000;
 	background: var(--able-sign-background);
 	border: 1px solid var(--able-sign-border);
+}
+
+.able-window-mask {
+	width: 100%;
+	height: 100%;
+	z-index: 8001;
+	position: absolute;
 }
 
 .fade-out {
@@ -891,18 +957,6 @@ span.able-modkey {
 .able-sign-window video {
 	width: 100%;
 	display: block;
-}
-
-.able-sign-window .able-resizable {
-	background: #00000033;
-	background: linear-gradient(to bottom right, transparent 0%, transparent 51%, #fff3 51%, #fff3 100%);
-	border-top-left-radius: 20px;
-}
-
-.able-sign-window:hover .able-resizable {
-	background: var(--able-very-light-gray);
-	background: linear-gradient(to bottom right, transparent 0%, transparent 51%, #fffe 51%, #fffe 100%);
-
 }
 
 .able-sign-window.able-fixed video {
@@ -1024,7 +1078,6 @@ ul.able-popup,
 	background-color: var(--able-menu-background);
 	outline: 1px solid var(--able-menu-outline);
 	color: var(--able-menu-color);
-		opacity: 0.95;
 	border-radius: 4px;
 	display: grid;
 	cursor: default;
@@ -1073,7 +1126,8 @@ ul.able-popup li.able-focus,
 	overflow-y: scroll;
 	padding-left: 1rem;
 	padding-right: 1rem;
-	background-color: #fff;
+	background-color: var(--able-transcript-background);
+	color: var(--able-transcript-color);
 	height: 350px;
 }
 
@@ -1140,40 +1194,23 @@ ul.able-popup li.able-focus,
 	margin-right: 0;
 }
 
-div.able-modal-dialog input,
-div.able-modal-dialog button,
-.able-window-toolbar .able-button-handler-preferences,
-.able-playlist li button,
-.able-search-results li button,
-.able-alert button,
-.able-modal-dialog button,
-.able-popup li,
-.able-window-toolbar input,
-.able-window-toolbar select,
-.able-controller input,
-.able-controller div[role="button"],
-.able-seekbar-head {
-	outline-style: solid;
-	outline-width: 3px;
-	outline-color: transparent;
-}
-
 .able-playlist button:focus,
 .able-search-results li button:focus,
 .able-alert button:focus,
 .able-modal-dialog button:focus,
 .able-wrapper .able button.able-big-play-button:focus .icon-play,
 .able-wrapper .able button.able-big-play-button:focus svg,
-.able-controller div[role="button"]:focus,
+.able-controller button:focus,
 div.able-modal-dialog input:focus,
 div.able-modal-dialog button:focus,
 .able-window-toolbar .able-button-handler-preferences:focus,
 .able-window-toolbar input:focus,
 .able-window-toolbar select:focus,
 .able-controller input:focus,
-.able-controller	div[role="button"]:focus,
 .able-seekbar-head:focus {
-	outline-color: var(--able-focus-outline);
+	outline: 3px solid var(--able-focus-outline);
+	outline-offset: 0;
+	background-color: transparent;
 }
 
 /* Control hover colors. */
@@ -1184,16 +1221,22 @@ div.able-modal-dialog button:focus,
 .able-wrapper .able button.able-big-play-button:hover .icon-play,
 .able-wrapper .able button.able-big-play-button:hover svg,
 .able-popup li:hover,
-.able-controller div[role="button"]:hover,
+.able-controller button:hover,
 div.able-modal-dialog input:hover,
 div.able-modal-dialog button:hover,
 .able-window-toolbar .able-button-handler-preferences:hover,
 .able-window-toolbar input:hover,
 .able-window-toolbar select:hover,
 .able-controller input:hover,
-.able-controller div[role="button"]:hover,
 .able-seekbar-head:hover {
-	outline-color: var(--able-hover-outline);
+	outline: 3px solid var(--able-hover-outline);
+	outline-offset: 0;
+	background-color: transparent;
+}
+
+.able-seekbar-head:focus,
+.able-seekbar-head:hover {
+	background-color: var(--able-seekbar-head);
 }
 
 /* Playlist (both audio and video) */
@@ -1303,8 +1346,8 @@ button.able-search-results-time {
 }
 
 /* SVG Icons */
-.able-wrapper div[role="button"] svg,
-.able-modal-dialog div[role="button"] svg,
+.able-wrapper button svg,
+.able-modal-dialog button svg,
 .able-wrapper button svg,
 .able-modal-dialog button svg {
 	display: block;
@@ -1344,6 +1387,7 @@ button.able-search-results-time {
 
 #able-vts table {
 	border-collapse: collapse;
+	width: 100%;
 }
 
 #able-vts table,
@@ -1370,7 +1414,7 @@ button.able-search-results-time {
 
 #able-vts table td button {
 	width: auto;
-	padding: 2px;
+	padding: 4px;
 	margin: 1px;
 	display: flex;
 	align-items: center;
@@ -1378,11 +1422,12 @@ button.able-search-results-time {
 	color: #323232;
 	background: #f6f6f6;
 	border-radius: 2px;
+	border: 1px solid #323232;
 }
 
 #able-vts table td button svg {
-	width: 22px;
-	height: 22px;
+	width: 16px;
+	height: 16px;
 }
 
 #able-vts table button:hover svg {
@@ -1450,7 +1495,7 @@ button#able-vts-save:focus {
 	.able-control-row {
 		gap: 8px;
 	}
-	.able-control-row div[role="button"] {
+	.able-control-row button {
 		min-width: 32px;
 		height: 32px;
 	}

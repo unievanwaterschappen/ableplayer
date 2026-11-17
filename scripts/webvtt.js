@@ -1,4 +1,6 @@
-(function ($) {
+import $ from 'jquery';
+
+ function addWebvttFunctions(AblePlayer) {
 	// See section 4.1 of dev.w3.org/html5/webvtt for format details.
 	AblePlayer.prototype.parseWebVTT = function(data) {
 
@@ -69,7 +71,7 @@
 		return returnText;
 	}
 
-	function cutLine(state, length) {
+	function cutLine(state) {
 		var nextEOL = state.text.indexOf('\n');
 		var returnText;
 		if (nextEOL === -1) {
@@ -255,14 +257,19 @@
 		var languageStack = [];
 		while (state.text.length > 0) {
 			var nextLine = peekLine(state);
-			if (nextLine.indexOf('-->') !== -1 || /^\s+$/.test(nextLine)) {
-				break; // Handle empty cues
-			}
-			// Have to separately detect double-lines ending cue due to our non-standard parsing.
-			// TODO: Redo outer algorithm to conform to W3 spec?
-			if (state.text.length >= 2 && state.text[0] === '\n' && state.text[1] === '\n') {
-				cut(state, 2);
-				break;
+			if (nextLine.indexOf('-->') !== -1) {
+				break; // Reached next cue timing line; definitely end of payload
+			} else if (nextLine.length === 0) {
+				// peekLine returns '' when state.text starts with '\n'.
+				// A true blank line (end of cue) is two consecutive newlines, so we'll check for that here
+				if (state.text.length === 1 || state.text[1] === '\n') {
+					break; // True blank line or solitary trailing newline — end of cue
+				}
+				// If we get here we had a single newline left in state.text because the previous "line" ended with a tag;
+				// We'll consume it and keep parsing the rest of the cue.
+				cut(state, 1); // Consume the lone newline
+				current.children.push({type: 'string', value: '\n'}); // preserve as newline in output
+				continue;
 			}
 
 			var token = getCueToken(state);
@@ -334,7 +341,8 @@
 						current.push(token);
 					}
 				}
-				catch (err) {
+				catch (e) {
+					// Errors are suppressed here, not sure why - VP 2026-03-02
 				}
 			}
 		}
@@ -578,14 +586,6 @@
 		}
 	}
 
-	function eatSingleSpaceOrTab(state) {
-		if (state.text[0] === '\t' || state.text[0] === ' ') {
-			cut(state, 1);
-		} else {
-			state.error = 'Missing space.';
-		}
-	}
-
 	function eatSpacesOrTabs(state) {
 		while (state.text[0] === '\t' || state.text[0] === ' ') {
 			cut(state, 1);
@@ -684,4 +684,6 @@
 
 		return time;
 	}
-})(jQuery);
+ }
+
+ export default addWebvttFunctions;

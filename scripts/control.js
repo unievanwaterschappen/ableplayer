@@ -1,4 +1,7 @@
-(function ($) {
+import $ from 'jquery';
+import DOMPurify from 'dompurify';
+
+function addControlFunctions(AblePlayer) {
 
 	AblePlayer.prototype.seekTo = function (newTime) {
 
@@ -93,11 +96,10 @@
 
 		// returns duration of the current media, expressed in seconds
 		// function is called by getMediaTimes, and return value is sanitized there
-		var deferred, promise, thisObj;
+		var deferred, promise;
 
 		deferred = new this.defer();
 		promise = deferred.promise();
-		thisObj = this;
 
 		if (this.player === 'vimeo') {
 			if (this.vimeoPlayer) {
@@ -141,11 +143,10 @@
 		// returns elapsed time of the current media, expressed in seconds
 		// function is called by getMediaTimes, and return value is sanitized there
 
-		var deferred, promise, thisObj;
+		var deferred, promise;
 
 		deferred = new this.defer();
 		promise = deferred.promise();
-		thisObj = this;
 
 		if (this.player === 'vimeo') {
 			if (this.vimeoPlayer) {
@@ -243,12 +244,18 @@
 		} else if (this.player === 'youtube') {
 			// Youtube supports varying playback rates per video.
 			// Only expose controls if more than one playback rate is available.
-			if (this.youTubePlayerReady) {
-				return (this.youTubePlayer.getAvailablePlaybackRates().length > 1) ? true : false;
+			if ( this.youTubePlayerReady ) {
+				try {
+					// can return undefined if player is mid-reload (e.g., just after cueVideoById)
+					var rates = this.youTubePlayer.getAvailablePlaybackRates();
+					return ( rates && rates.length > 1 ) ? true : false;
+				} catch (e) {
+					return false;
+				}
 			} else {
 				return false;
 			}
-		} else if (this.player === 'vimeo') {
+		} else if ( this.player === 'vimeo' ) {
 			// since this takes longer to determine, it was set previously in initVimeoPlayer()
 			return this.vimeoSupportsPlaybackRateChange;
 		}
@@ -304,6 +311,31 @@
 	};
 
 	AblePlayer.prototype.syncSignVideo = function(options) {
+		if (this.hasSignLanguage && this.vimeoSignPlayer && options) {
+			const sign = this.vimeoSignPlayer;
+			const thisObj = this;
+			const ignore = function(error) {
+				if (thisObj.debug) {
+					console.log('Vimeo sign player error: ', error);
+				}
+			};
+			if (typeof options.time !== 'undefined') {
+				sign.setCurrentTime(options.time).catch(ignore);
+			}
+			if (typeof options.rate !== 'undefined') {
+				sign.setPlaybackRate(options.rate).catch(ignore);
+			}
+			if (typeof options.pause !== 'undefined') {
+				sign.pause().catch(ignore);
+			}
+			if (typeof options.play !== 'undefined') {
+				sign.play().catch(ignore);
+			}
+			if (typeof options.volume !== 'undefined') {
+				sign.setVolume(0).catch(ignore);
+			}
+			return;
+		}
 		if (this.hasSignLanguage && ( this.signVideo || this.signYoutube ) ) {
 			if (options && typeof options.time !== 'undefined') {
 				if ( this.signVideo ) {
@@ -387,8 +419,6 @@
 		// Would be better if the video and captions expanded to fill the void
 		// replace JS animation with CSS animation in 12/2025.
 
-		var thisObj = this;
-
 		if (direction == 'out') {
 			// get the original height of two key components:
 			this.$playerDiv.addClass( 'fade-out' ).removeClass( 'fade-in' );
@@ -422,17 +452,16 @@
 		// 'fullscreen' - a change has been triggered by full screen toggle
 		// 'playpause' - a change triggered by either a 'play' or 'pause' event
 
-		// NOTE: context is not currently supported.
-		// The steps in this function have too many complex interdependencies
-		// The gains in efficiency are offset by the possibility of introducing bugs
-		// For now, executing everything
-		context = 'init';
+		// Normalize context to a known value.
+		if (['init', 'timeline', 'captions', 'descriptions', 'transcript', 'fullscreen', 'playpause'].indexOf(context) === -1) {
+			context = 'init';
+		}
 
 		// duration and elapsed are passed from callback functions of Vimeo API events
 		// duration is expressed as sss.xxx
 		// elapsed is expressed as sss.xxx
 
-		var thisObj, duration,  textByState, timestamp,  captionsCount, newTop,	statusBarWidthBreakpoint;
+		var thisObj, textByState, volumeStatus, timestamp,  captionsCount, newTop,	statusBarWidthBreakpoint;
 
 		thisObj = this;
 		// wait until new source has loaded before refreshing controls
@@ -444,7 +473,7 @@
 		if ( context === 'timeline' || context === 'init' ) {
 			// Update timeline controls.
 			var lastChapterIndex, displayElapsed, updateLive, widthUsed,
-				leftControls, rightControls, seekbarWidth, buffered;
+				leftControls, rightControls, seekbarWidth, buffered, mediaDuration;
 			// all timeline-related functionality requires duration
 			if (typeof this.duration === 'undefined') {
 				// wait until duration is known before proceeding with refresh
@@ -482,9 +511,8 @@
 				if (!(this.seekBar.tracking)) {
 					// Only update the aria live region if we have an update pending
 					// (from a seek button control) or if the seekBar has focus.
-					// We use document.activeElement instead of $(':focus') due to a strange bug:
-					// When the seekHead element is focused, .is(':focus') is failing and $(':focus') is returning an undefined element.
-					updateLive = this.liveUpdatePending || this.seekBar.seekHead.is($(document.activeElement));
+					let activeEl = AblePlayer.getActiveDOMElement();
+					updateLive = this.liveUpdatePending || this.seekBar.$seekHead.is($(activeEl));
 					this.liveUpdatePending = false;
 					if (this.useChapterTimes) {
 						this.seekBar.setPosition(this.chapterElapsed, updateLive);
@@ -503,9 +531,9 @@
 			// update elapsed & duration
 			if (typeof this.$durationContainer !== 'undefined') {
 				if (this.useChapterTimes) {
-					this.$durationContainer.text(' / ' + this.formatSecondsAsColonTime(this.chapterDuration));
+					this.$durationContainer.text( this.formatSecondsAsColonTime(this.chapterDuration));
 				} else {
-					this.$durationContainer.text(' / ' + this.formatSecondsAsColonTime(this.duration));
+					this.$durationContainer.text( this.formatSecondsAsColonTime(this.duration));
 				}
 			}
 			if (typeof this.$elapsedTimeContainer !== 'undefined') {
@@ -516,12 +544,12 @@
 				// Update seekbar width.
 				// To do this, we need to calculate the width of all buttons surrounding it.
 				if (this.seekBar) {
-					let controlWrapper = this.seekBar.wrapperDiv.parent().parent();
-					leftControls = this.seekBar.wrapperDiv.parent().prev('div.able-left-controls');
+					let controlWrapper = this.seekBar.$wrapperDiv.parent().parent();
+					leftControls = this.seekBar.$wrapperDiv.parent().prev('div.able-left-controls');
 					rightControls = leftControls.next('div.able-right-controls');
 					widthUsed = leftControls.outerWidth(true);
 					rightControls.children().each(function () {
-						if ($(this).attr('role')=='button') {
+						if ( $(this).is('button') ) {
 							widthUsed += $(this).outerWidth(true) + 5;
 						}
 					});
@@ -543,16 +571,17 @@
 			// TODO: Currently only using the first HTML5 buffered interval,
 			// but this fails sometimes when buffering is split into two or more intervals.
 			if (this.player === 'html5' && this.media.buffered.length > 0) {
+				mediaDuration = (typeof duration !== 'undefined' && !isNaN(duration) && duration > 0) ? duration : this.duration;
 				buffered = this.media.buffered.end(0);
 				if (this.useChapterTimes) {
 					if (buffered > this.chapterDuration) {
 						buffered = this.chapterDuration;
 					}
-					if (this.seekBar) {
+					if (this.seekBar && this.chapterDuration > 0) {
 						this.seekBar.setBuffered(buffered / this.chapterDuration);
 					}
-				} else if ( this.seekBar && !isNaN(buffered) ) {
-					this.seekBar.setBuffered(buffered / duration);
+				} else if ( this.seekBar && !isNaN(buffered) && !isNaN(mediaDuration) && mediaDuration > 0 ) {
+					this.seekBar.setBuffered(buffered / mediaDuration);
 				}
 			} else if (this.player === 'youtube' && this.seekBar && this.youTubePlayerReady ) {
 				this.seekBar.setBuffered(this.youTubePlayer.getVideoLoadedFraction());
@@ -689,7 +718,10 @@
 				// Update the text only if it's changed since it has role="alert";
 				// also don't update while tracking, since this may Pause/Play the player but we don't want to send a Pause/Play update.
 				this.getPlayerState().then(function(currentState) {
-					if (thisObj.$status.text() !== textByState[currentState] && !thisObj.seekBar.tracking) {
+					volumeStatus = thisObj.getVolume() === 0 ? thisObj.translate( 'statusMuted', 'Muted' ) : '';
+					volumeStatus = (volumeStatus) ? ', ' + volumeStatus : '';
+					let currentMessage = textByState[currentState] + ' ' + volumeStatus;
+					if (thisObj.$status.text() !== currentMessage && !thisObj.seekBar.tracking) {
 						// Debounce updates; only update after status has stayed steadily different for a while
 						// "A while" is defined differently depending on context
 						if (thisObj.swappingSrc) {
@@ -713,7 +745,7 @@
 								thisObj.refreshControls(context);
 							}, thisObj.statusMessageThreshold);
 						} else if ((timestamp - thisObj.statusDebounceStart) > thisObj.statusMessageThreshold) {
-							thisObj.$status.text(textByState[currentState]);
+							thisObj.$status.text(currentMessage);
 							thisObj.statusDebounceStart = null;
 							clearTimeout(thisObj.statusTimeout);
 							thisObj.statusTimeout = null;
@@ -728,15 +760,13 @@
 					if (!thisObj.seekBar.tracking && !thisObj.stoppingYouTube) {
 						if (currentState === 'paused' || currentState === 'stopped' || currentState === 'ended') {
 							if(thisObj.activePlayPauseButtonState !== 'play') {
-								thisObj.$playpauseButton.attr('aria-label',thisObj.tt.play);
+								thisObj.$playpauseButton.attr('aria-label', thisObj.translate( 'play', 'Play' ) );
 								thisObj.getIcon( thisObj.$playpauseButton, 'play' );
-								thisObj.$playpauseButton.find('span.able-clipped').text(thisObj.tt.play);
 								thisObj.activePlayPauseButtonState = 'play';
 							}
 						} else if(thisObj.activePlayPauseButtonState !== 'pause') {
-							thisObj.$playpauseButton.attr('aria-label',thisObj.tt.pause);
+							thisObj.$playpauseButton.attr('aria-label', thisObj.translate( 'pause', 'Pause' ) );
 							thisObj.getIcon( thisObj.$playpauseButton, 'pause' );
-							thisObj.$playpauseButton.find('span.able-clipped').text(thisObj.tt.pause);
 							thisObj.activePlayPauseButtonState = 'pause';
 						}
 					}
@@ -799,18 +829,18 @@
 
 		// currently on the first track
 		// wrap to bottom and play the last track
-		this.playlistIndex = (this.playlistIndex === 0) ? this.$playlist.length - 1 : this.playlistIndex--;
+		let newIndex = (this.playlistIndex === 0) ? this.$playlist.length - 1 : this.playlistIndex - 1;
 		this.cueingPlaylistItem = true; // stopgap to prevent multiple firings
-		this.cuePlaylistItem(this.playlistIndex);
+		this.cuePlaylistItem(newIndex);
 	};
 
 	AblePlayer.prototype.handleNextTrack = function() {
 
 		// currently on the last track
-		// wrap to top and play the forst track
-		this.playlistIndex = (this.playlistIndex === this.$playlist.length - 1) ? 0 : this.playlistIndex++;
+		// wrap to top and play the first track
+		let newIndex = (this.playlistIndex === this.$playlist.length - 1) ? 0 : this.playlistIndex + 1;
 		this.cueingPlaylistItem = true; // stopgap to prevent multiple firings
-		this.cuePlaylistItem(this.playlistIndex);
+		this.cuePlaylistItem(newIndex);
 	};
 
 	AblePlayer.prototype.handleRewind = function() {
@@ -870,15 +900,24 @@
 	};
 
 	// Increases or decreases playback rate, where dir is 1 or -1 indication direction.
-	AblePlayer.prototype.changeRate = function (dir) {
+	AblePlayer.prototype.changeRate = function (dir,change = true) {
 
 		var rates, currentRate, index, newRate, vimeoMin, vimeoMax;
 
 		if (this.player === 'html5') {
-			this.setPlaybackRate(this.getPlaybackRate() + (0.25 * dir));
+			if ( change ) {
+				// increase or decrease by 0.25x
+				this.setPlaybackRate(this.getPlaybackRate() + (0.25 * dir));
+			} else {
+				return this.getPlaybackRate() + (0.25 * dir);
+			}
 		} else if (this.player === 'youtube') {
 			if (this.youTubePlayerReady) {
 				rates = this.youTubePlayer.getAvailablePlaybackRates();
+				if ( !rates ) {
+					// player is mid-reload (e.g., just after cueVideoById); nothing to do yet
+					return;
+				}
 				currentRate = this.getPlaybackRate();
 				index = rates.indexOf(currentRate);
 				if (index === -1) {
@@ -887,7 +926,11 @@
 					index += dir;
 					// Can only increase or decrease rate if there's another rate available.
 					if (index < rates.length && index >= 0) {
-						this.setPlaybackRate(rates[index]);
+						if ( change ) {
+							this.setPlaybackRate(rates[index]);
+						} else {
+							return rates[index];
+						}
 					}
 				}
 			}
@@ -901,20 +944,17 @@
 			} else if (dir === -1) {
 				newRate = (this.vimeoPlaybackRate - 0.5 >= vimeoMin) ? this.vimeoPlaybackRate - 0.5 : vimeoMin;
 			}
-			this.setPlaybackRate(newRate);
+			if ( change ) {
+				this.setPlaybackRate(newRate);
+			} else {
+				return newRate;
+			}
 		}
 	};
 
 	AblePlayer.prototype.handleCaptionToggle = function() {
-
 		var thisObj = this;
 		var captions, ariaPressed;
-		if (this.hidingPopup) {
-			// stopgap to prevent spacebar in Firefox from reopening popup
-			// immediately after closing it
-			this.hidingPopup = false;
-			return false;
-		}
 
 		captions = (this.captions.length) ? this.captions : [];
 		if (captions.length === 1) {
@@ -941,25 +981,21 @@
 				if (this.usingYouTubeCaptions) {
 					this.youTubePlayer.loadModule('captions');
 				} else if (this.usingVimeoCaptions) {
-					this.vimeoPlayer.enableTextTrack(this.captionLang).then(function(track) {
-						// track.language = the iso code for the language
-						// track.kind = 'captions' or 'subtitles'
-						// track.label = the human-readable label
-					}).catch(function(error) {
+					this.vimeoPlayer.enableTextTrack(this.captionLang).catch(function(error) {
 						switch (error.name) {
 							case 'InvalidTrackLanguageError':
-								// no track was available with the specified language
-								console.log('No ' + track.kind + ' track is available in the specified language (' + track.label + ')');
+								// There is no text track for the specified language
+								console.log(`No Vimeo text track is available in the specified language (${this.captionLang})`);
 								break;
 							case 'InvalidTrackError':
-								// no track was available with the specified language and kind
-								console.log('No ' + track.kind + ' track is available in the specified language (' + track.label + ')');
+								// There is no such text track
+								console.log('No Vimeo text track is available');
 								break;
 							default:
 								// some other error occurred
-								console.log('Error loading ' + track.label + ' ' + track.kind + ' track');
+								console.log('Error enabling Vimeo text track');
 								break;
-							}
+						}
 					});
 				} else {
 					this.$captionsWrapper.show();
@@ -979,7 +1015,6 @@
 			// clicking on a track is handled via caption.js > getCaptionClickFunction()
 			if (this.captionsPopup && this.captionsPopup.is(':visible')) {
 				this.captionsPopup.hide();
-				this.hidingPopup = false;
 				this.$ccButton.attr('aria-expanded', 'false')
 				this.waitThenFocus(this.$ccButton);
 			} else {
@@ -990,7 +1025,7 @@
 
 					// Gives time to "register" expanded ccButton
 					setTimeout(function() {
-						thisObj.captionsPopup.css('top', thisObj.$ccButton.position().top - thisObj.captionsPopup.outerHeight());
+						thisObj.captionsPopup.css('top', thisObj.$ccButton.position().top - thisObj.captionsPopup.outerHeight() - 4 );
 						thisObj.captionsPopup.css('left', thisObj.$ccButton.position().left)
 						// Place focus on the first button (even if another button is checked)
 						thisObj.captionsPopup.find('li').removeClass('able-focus');
@@ -1029,21 +1064,14 @@
 	}
 
 	AblePlayer.prototype.handleChapters = function () {
-		if (this.hidingPopup) {
-			// stopgap to prevent spacebar in Firefox from reopening popup
-			// immediately after closing it
-			this.hidingPopup = false;
-			return false;
-		}
 		if (this.chaptersPopup.is(':visible')) {
 			this.chaptersPopup.hide();
-			this.hidingPopup = false;
 			this.$chaptersButton.attr('aria-expanded','false').trigger('focus');
 		} else {
 			this.closePopups();
 			this.chaptersPopup.show();
 			this.$chaptersButton.attr('aria-expanded','true');
-			this.chaptersPopup.css('top', this.$chaptersButton.position().top - this.chaptersPopup.outerHeight());
+			this.chaptersPopup.css('top', this.$chaptersButton.position().top - this.chaptersPopup.outerHeight() - 4 );
 			this.chaptersPopup.css('left', this.$chaptersButton.position().left)
 
 			// Highlight the current chapter, if any chapters are checked
@@ -1091,12 +1119,6 @@
 		if (this.speechEnabled === null) {
 			this.initSpeech('prefs');
 		}
-		if (this.hidingPopup) {
-			// stopgap to prevent spacebar in Firefox from reopening popup
-			// immediately after closing it
-			this.hidingPopup = false;
-			return false;
-		}
 		if (this.prefsPopup.is(':visible')) {
 			this.prefsPopup.hide();
 			this.$prefsButton.attr('aria-expanded','false');
@@ -1105,10 +1127,6 @@
 			if (!this.showingPrefsDialog) {
 				this.$prefsButton.trigger('focus');
 			}
-			// wait briefly, then reset hidingPopup
-			setTimeout(function() {
-				thisObj.hidingPopup = false;
-			},100);
 		} else {
 			this.closePopups();
 			this.prefsPopup.show();
@@ -1119,7 +1137,7 @@
 				prefsButtonPosition = thisObj.$prefsButton.position();
 				prefsMenuRight = thisObj.$ableDiv.width() - 5;
 				prefsMenuLeft = prefsMenuRight - thisObj.prefsPopup.width();
-				thisObj.prefsPopup.css('top', prefsButtonPosition.top - thisObj.prefsPopup.outerHeight());
+				thisObj.prefsPopup.css('top', prefsButtonPosition.top - thisObj.prefsPopup.outerHeight() - 4);
 				thisObj.prefsPopup.css('left', prefsMenuLeft);
 				// remove prior focus and set focus on first item; also change tabindex from -1 to 0
 				thisObj.prefsPopup.find('li').removeClass('able-focus').attr('tabindex','0');
@@ -1337,57 +1355,49 @@
 		this.refreshControls('transcript');
 	};
 
-	AblePlayer.prototype.getIcon = function( $button, id, forceImg = false ) {
+	AblePlayer.prototype.getIcon = function( $button, id) {
 		// Remove existing HTML before generating.
-		// iconData: [0 = svg viewbox, 1 = svg path, 2 = icon font class, 3 = image file]
-		var iconType = this.iconType;
-		var iconData = this.getIconData( id );
-		iconType = ( null === iconData[3] ) ? 'svg' : iconType;
-		iconType =  ( forceImg === true ) ? 'img' : iconType;
+		// iconData: [0 = svg viewbox, 1 = svg path]
+		// Font and image icon functionality was removed in 5.0.0 in favor of SVG.
+		var iconData;
+		if ( Object.hasOwn( this.options, 'icons' ) && Object.hasOwn( this.options.icons, id ) ) {
+			iconData = this.options.icons[id];
+		} else {
+			iconData = this.getIconData( id );
+		}
 
-		var existingIcon = $button.find( iconType + '#ableplayer-' + id );
+		var existingIcon = $button.find( 'svg#ableplayer-' + id );
 		// Avoid repainting icon if there's no change.
 		if ( existingIcon.length > 0 ) {
 			return;
 		}
-		$button.find('svg, img, span').remove();
+		$button.find('svg').remove();
 
-		if (iconType === 'font') {
-			var $buttonIcon = $('<span>', {
-				'class': iconData[2],
-			});
-			$button.append( $buttonIcon );
-		} else if (iconType === 'svg') {
-			// Function to create SVG nodes.
-			function getNode(n, v) {
-				n = document.createElementNS("http://www.w3.org/2000/svg", n);
-				for (var p in v) {
-					n.setAttributeNS(null, p.replace(/[A-Z]/g, function(m) {
-						return "-" + m.toLowerCase();
-					}), v[p]);
-				}
-				return n;
+		// Function to create SVG nodes.
+		function getNode(n, v) {
+			n = document.createElementNS("http://www.w3.org/2000/svg", n);
+			for (var p in v) {
+				n.setAttributeNS(null, p.replace(/[A-Z]/g, function(m) {
+					return "-" + m.toLowerCase();
+				}), v[p]);
 			}
-			var icon = document.createElementNS( 'http://www.w3.org/2000/svg', 'svg' );
-			icon.setAttribute( 'focusable', 'false' );
-			icon.setAttribute( 'aria-hidden', 'true');
-			icon.setAttribute( 'viewBox', iconData[0] );
-			icon.setAttribute( 'id', 'ableplayer-' + id );
-			let path = getNode( 'path', { d: iconData[1] } );
-			icon.appendChild( path );
-
-			$button.append( icon );
-			// Refresh the DOM.
-			$button.html($button.html());
-		} else {
-			var $buttonImg = $('<img>',{
-				'src': iconData[3],
-				'alt': '',
-				'role': 'presentation'
-			});
-			$button.append($buttonImg);
-			$button.find('img').attr('src',iconData[3]);
+			return n;
 		}
+		var icon = document.createElementNS( 'http://www.w3.org/2000/svg', 'svg' );
+		icon.setAttribute( 'focusable', 'false' );
+		icon.setAttribute( 'aria-hidden', 'true');
+		icon.setAttribute( 'viewBox', iconData[0] );
+		icon.setAttribute( 'id', 'ableplayer-' + id );
+		let paths = iconData[1];
+		paths.forEach( function( pathData ) {
+			let path = getNode( 'path', { d: pathData } );
+			icon.appendChild( path );
+		});
+		let cleanSVG = DOMPurify.sanitize(icon.outerHTML, {RETURN_DOM_FRAGMENT: true});
+		icon = cleanSVG.firstChild;
+		$button.append( icon );
+		// Refresh the DOM.
+		$button.html($button.html());
 	};
 
 	AblePlayer.prototype.setText = function( $button, text ) {
@@ -1738,26 +1748,21 @@
 				meta = this.meta[i];
 			}
 		}
-		// regardless of source...
-		this.transcriptLang = language;
+		// Change the transcript language if the transcript is not currently visible.
+		if ( ( source === 'captions' && typeof this.$transcriptArea !== 'undefined' && ! this.$transcriptArea.is(':visible') ) || source === 'init' || source === 'transcript' ) {
+			console.log('syncTrackLanguages: transcript is not visible, so changing transcript language to ' + language);
+			this.transcriptCaptions = captions;
+			this.transcriptChapters = chapters;
+			this.transcriptDescriptions = descriptions;
+			this.transcriptLang = language;
+		}
 		if (source === 'init' || source === 'captions') {
 			this.captionLang = language;
 			this.selectedCaptions = captions;
 			this.selectedChapters = chapters;
 			this.selectedDescriptions = descriptions;
 			this.selectedMeta = meta;
-			this.transcriptCaptions = captions;
-			this.transcriptChapters = chapters;
-			this.transcriptDescriptions = descriptions;
 			this.updateChaptersList();
-			// the following was commented out in Oct/Nov 2018.
-			// chapters popup is setup automatically when setupPopups() is called later with no param
-			// not sure why it was included here.
-			// this.setupPopups('chapters');
-		} else if (source === 'transcript') {
-			this.transcriptCaptions = captions;
-			this.transcriptChapters = chapters;
-			this.transcriptDescriptions = descriptions;
 		}
 		if (this.selectedDescriptions) {
 			// updating description voice to match new description language
@@ -1776,4 +1781,6 @@
 		this.updateTranscript();
 	};
 
-})(jQuery);
+}
+
+export default addControlFunctions;

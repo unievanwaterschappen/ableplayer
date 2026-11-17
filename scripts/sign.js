@@ -1,25 +1,43 @@
-(function ($) {
+/* global YT, Vimeo */
+import $ from 'jquery';
+import DOMPurify from 'dompurify';
+
+function addSignFunctions(AblePlayer) {
 	AblePlayer.prototype.initSignLanguage = function() {
+		let firstSource, localSignSrc, remoteSignSrc, vimeoSignSrc, hasLocalSrc, hasRemoteSrc, hasRemoteSource, hasVimeoSign, ytSignSrc, signSrc, signVideo;
+
 		this.hasSignLanguage = false;
-		// Sign language is only currently supported in HTML5 player and YouTube.
-		var hasLocalSrc = ( this.$sources.first().attr('data-sign-src') !== undefined && this.$sources.first().attr('data-sign-src') !== "" );
+		// Sign language is supported on all players.
+		firstSource   = this.sources[0] ?? null;
+		localSignSrc  = firstSource ? firstSource.getAttribute('data-sign-src') : null;
+		remoteSignSrc = firstSource ? firstSource.getAttribute('data-youtube-sign-src') : null;
+		vimeoSignSrc  = firstSource ? firstSource.getAttribute('data-vimeo-sign-src') : null;
+		hasLocalSrc   = ( localSignSrc !== null && localSignSrc !== "" );
 		// YouTube src can either be on a `source` element or on the `video` element.
-		var hasRemoteSrc = ( this.$media.data('youtube-sign-src') !== undefined && this.$media.data('youtube-sign-src') !== "" );
-		var hasRemoteSource = ( this.$sources.first().attr('data-youtube-sign-src') !== undefined && this.$sources.first().attr('data-youtube-sign-src') !== '' );
-		if ( ! this.isIOS() && ( hasLocalSrc || hasRemoteSrc || hasRemoteSource ) && ( this.player === 'html5' || this.player === 'youtube' ) ) {
+		hasRemoteSrc    = ( this.$media.data('youtube-sign-src') !== undefined && this.$media.data('youtube-sign-src') !== "" );
+		hasRemoteSource = ( remoteSignSrc !== null && remoteSignSrc !== '' );
+		// Vimeo src can also be on either element.
+		if ( ! this.vimeoSignId && vimeoSignSrc ) {
+			let mainUrlHasParams = this.vimeoUrlHasParams;
+			this.vimeoSignId = this.getVimeoId( vimeoSignSrc );
+			this.vimeoSignUrlHasParams = this.vimeoUrlHasParams;
+			this.vimeoUrlHasParams = mainUrlHasParams;
+		}
+		hasVimeoSign = !! this.vimeoSignId;
+		if ( ! this.isIOS() && ( hasLocalSrc || hasRemoteSrc || hasRemoteSource || hasVimeoSign ) && ( this.player === 'html5' || this.player === 'youtube' || this.player === 'vimeo' ) ) {
 			// check to see if there's a sign language video accompanying this video
 			// check only the first source
 			// If sign language is provided, it must be provided for all sources
-			let ytSignSrc = this.youTubeSignId ?? DOMPurify.sanitize( this.$sources.first().attr('data-youtube-sign-src') );
-			let signSrc = DOMPurify.sanitize( this.$sources.first().attr('data-sign-src') );
-			let signVideo = DOMPurify.sanitize( this.$media.data('youtube-sign-src') );
+			ytSignSrc = this.youTubeSignId ?? DOMPurify.sanitize( remoteSignSrc );
+			signSrc   = DOMPurify.sanitize( localSignSrc );
+			signVideo = DOMPurify.sanitize( this.$media.data('youtube-sign-src') );
 			this.signFile = (hasLocalSrc ) ? signSrc : false;
 			if ( hasRemoteSrc ) {
 				this.signYoutubeId = signVideo;
 			} else if ( hasRemoteSource ) {
 				this.signYoutubeId = ytSignSrc;
 			}
-			if ( this.signFile || this.signYoutubeId ) {
+			if ( this.signFile || this.signYoutubeId || this.vimeoSignId ) {
 				if (this.isIOS()) {
 					// iOS does not allow multiple videos to play simultaneously
 					// Therefore, sign language as rendered by Able Player unfortunately won't work
@@ -40,12 +58,11 @@
 	AblePlayer.prototype.injectSignPlayerCode = function() {
 
 		// create and inject surrounding HTML structure
-		var thisObj, signVideoId, i, signSrc, srcType, $signSource;
+		var signVideoId, i, signSrc, srcType, $signSource;
 
-		thisObj = this;
 		signVideoId = this.mediaId + '-sign';
 
-		if ( this.signFile || this.signYoutubeId ) {
+		if ( this.signFile || this.signYoutubeId || this.vimeoSignId ) {
 			if ( null !== this.$signDivLocation ) {
 				this.$signDivLocation.addClass( 'able-sign-window able-fixed' );
 				this.$signWindow = this.$signDivLocation;
@@ -58,6 +75,9 @@
 				this.$signToolbar = $('<div>',{
 					'class': 'able-window-toolbar able-' + this.toolbarIconColor + '-controls'
 				});
+				let signMask = document.createElement( 'div' );
+				signMask.classList.add( 'able-window-mask' );
+				this.$signWindow.append( signMask );
 				this.$signWindow.append(this.$signToolbar);
 			}
 
@@ -80,9 +100,9 @@
 				this.$signVideo.append($signSource);
 			} else {
 				// for each original <source>, add a <source> to the sign <video>
-				for (i=0; i < this.$sources.length; i++) {
-					signSrc = DOMPurify.sanitize( this.$sources[i].getAttribute('data-sign-src') );
-					srcType = this.$sources[i].getAttribute('type');
+				for (i=0; i < this.sources.length; i++) {
+					signSrc = DOMPurify.sanitize( this.sources[i].getAttribute('data-sign-src') );
+					srcType = this.sources[i].getAttribute('type');
 					if (signSrc) {
 						$signSource = $('<source>',{
 							'src' : signSrc,
@@ -100,6 +120,8 @@
 			this.$signWindow.append( this.$signVideo );
 		} else if ( this.signYoutubeId ) {
 			this.signYoutube = this.initYouTubeSignPlayer();
+		} else if ( this.vimeoSignId ) {
+			this.signVimeo = this.initVimeoSignPlayer();
 		}
 
 		// make it draggable
@@ -117,6 +139,35 @@
 		}
 	};
 
+
+	AblePlayer.prototype.initVimeoSignPlayer = function () {
+
+		var thisObj, containerId, id, options;
+		thisObj = this;
+		containerId = this.mediaId + '_vimeo_sign';
+		id = DOMPurify.sanitize( String( this.vimeoSignId ) );
+
+		this.vimeoSignPlayerReady = false;
+		this.$signWindow.append( $('<div>').attr('id', containerId) );
+
+		options = this.vimeoSignUrlHasParams ? { url: id } : { id: id };
+		options.controls = false;
+		options.muted = true;
+		options.autoplay = false;
+
+		this.vimeoSignPlayer = new Vimeo.Player( containerId, options );
+		return this.vimeoSignPlayer.ready().then( function() {
+			$('#' + containerId).children('iframe').attr({
+				'tabindex': '-1',
+				'aria-hidden': true
+			});
+			thisObj.vimeoSignPlayer.setVolume(0).catch(function() {});
+			if ( thisObj.startTime ) {
+				thisObj.vimeoSignPlayer.setCurrentTime( thisObj.startTime ).catch(function() {});
+			}
+			thisObj.vimeoSignPlayerReady = true;
+		}).catch( function() {} );
+	};
 
 	AblePlayer.prototype.initYouTubeSignPlayer = function () {
 
@@ -153,7 +204,7 @@
 	AblePlayer.prototype.finalizeYoutubeSignInit = function () {
 
 		// This is called once we're sure the Youtube iFrame API is loaded -- see above
-		var deferred, promise, thisObj, containerId, ccLoadPolicy, autoplay;
+		var deferred, promise, thisObj, containerId, autoplay;
 
 		deferred = new this.defer();
 		promise = deferred.promise();
@@ -189,10 +240,10 @@
 
 					deferred.resolve();
 				},
-				onError: function (x) {
+				onError: function (e) {
 					deferred.reject();
 				},
-				onStateChange: function (x) {
+				onStateChange: function (e) {
 					thisObj.getPlayerState().then(function() {
 						// no actions
 					});
@@ -209,4 +260,6 @@
 		return promise;
 	};
 
-})(jQuery);
+}
+
+export default addSignFunctions;

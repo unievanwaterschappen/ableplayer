@@ -3,7 +3,9 @@
  * so they appear in the proper sequence within an auto-generated interactive transcript
 */
 
-(function ($) {
+import $ from 'jquery';
+
+function addVtsFunctions(AblePlayer) {
 	AblePlayer.prototype.injectVTS = function() {
 
 		var thisObj, $heading, $instructions, $p1, $p2, $ul, $li1, $li2, $li3,
@@ -52,13 +54,10 @@
 				$fieldset = $('<fieldset>');
 				$legend = $('<legend>').text( this.translate( 'vtsSelectLanguage', 'Select a language' ) );
 				$fieldset.append($legend);
-				$fieldWrapper = $( '<div class="vts-lang-selector"></div>' );
+				let $fieldWrapper = $( '<div class="vts-lang-selector"></div>' );
 				for (i in this.langs) {
 					radioId = 'vts-lang-radio-' + this.langs[i];
-					$radioDiv = $('<div>',{
-						// uncomment the following if label is native name
-						// 'lang': this.langs[i]
-					});
+					$radioDiv = $('<div>');
 					$radio = $('<input>', {
 						'type': 'radio',
 						'name': 'vts-lang',
@@ -98,7 +97,7 @@
 
 				// TODO: Add drag/drop functionality for mousers
 				// Add event listeners for contenteditable cells
-				var kindOptions, beforeEditing, editedCell, editedContent, i;
+				var kindOptions, beforeEditing, editedCell, editedContent;
 				kindOptions = ['captions','chapters','descriptions','subtitles'];
 				$('td[contenteditable="true"]').on('focus',function() {
 					beforeEditing = $(this).text();
@@ -255,16 +254,29 @@
 
 		// timestamp is a string in the form "HH:MM:SS.xxx"
 		// Take some simple steps to ensure edited timestamp values still adhere to expected format
+		// All time strings should have all components (hours, minutes, seconds, milliseconds) present.
 
-		var firstPart, lastPart;
+		var firstPart, parts, lastPart, firstParts;
 
-		firstPart = timestamp.substring(0,timestamp.lastIndexOf('.')+1);
-		lastPart = timestamp.substring(timestamp.lastIndexOf('.')+1);
-
-		// TODO: Be sure each component within firstPart has only exactly two digits
-		// Probably can't justify doing this automatically
-		// If users enters '5' for minutes, that could be either '05' or '50'
-		// This should trigger an error and prompt the user to correct the value before proceeding
+		parts      = timestamp.split('.');
+		firstPart  = parts[0];
+		firstParts = firstPart.split(':');
+		let hours, minutes, seconds;
+		if (firstParts.length === 3) {
+			hours   = String(firstParts[0]).padStart(2,'0');
+			minutes = String(firstParts[1]).padStart(2,'0');
+			seconds = String(firstParts[2]).padStart(2,'0');
+		} else if (firstParts.length === 2) {
+			hours   = '00';
+			minutes = String(firstParts[0]).padStart(2,'0');
+			seconds = String(firstParts[1]).padStart(2,'0');
+		} else if (firstParts.length === 1) {
+			hours   = '00';
+			minutes = '00';
+			seconds = String(firstParts[0]).padStart(2,'0');
+		}
+		firstPart = hours + ':' + minutes + ':' + seconds;
+		lastPart  = parts[1] ?? '000';
 
 		// Be sure lastPart has exactly three digits
 		if (lastPart.length > 3) {
@@ -272,11 +284,9 @@
 			lastPart = lastPart.substring(0,3);
 		} else if (lastPart.length < 3) {
 			// add trailing zeros
-			while (lastPart.length < 3) {
-				lastPart += '0';
-			}
+			lastPart = String(lastPart).padEnd(3,'0');
 		}
-		return firstPart + lastPart;
+		return firstPart + '.' + lastPart;
 	};
 
 
@@ -556,7 +566,7 @@
 		// update this.langs with any unique languages found in tracks
 		var i;
 		for (i in tracks) {
-			if (tracks[i].hasOwnProperty('language')) {
+			if (Object.hasOwn(tracks[i], 'language')) {
 				if ($.inArray(tracks[i].language,this.langs) === -1) {
 					// this language is not already in the langs array. Add it.
 					this.langs[this.langs.length] = tracks[i].language;
@@ -739,9 +749,8 @@
 	AblePlayer.prototype.moveRow = function(rowNum,direction) {
 
 		// swap two rows
-		var $rows, $thisRow, otherRowNum, $otherRow, msg;
+		var $thisRow, otherRowNum, $otherRow, msg;
 
-		$rows = $('#able-vts table').find('tr');
 		$thisRow = $('#able-vts table').find('tr').eq(rowNum);
 		if (direction == 'up') {
 			otherRowNum = parseInt(rowNum) - 1;
@@ -772,17 +781,9 @@
 
 		// Adjusts start and end times of the current, previous, and next rows in VTS table
 		// after a move or insert
-		// NOTE: Fully automating this process would be extraordinarily complicated
-		// The goal here is simply to make subtle tweaks to ensure rows appear
+		// The goal here is to make subtle tweaks to ensure rows appear
 		// in the new order within the Able Player transcript
 		// Additional tweaking will likely be required by the user
-
-		// HISTORY: Originally set minDuration to 2 seconds for captions and .500 for descriptions
-		// However, this can results in significant changes to existing caption timing,
-		// with not-so-positive results.
-		// As of 3.1.15, setting minDuration to .001 for all track kinds
-		// Users will have to make further adjustments manually if needed
-
 		// TODO: Add WebVTT validation on save, since tweaking times is risky
 
 		var	 minDuration, $rows, prevRowNum, nextRowNum, $row, $prevRow, $nextRow,
@@ -820,7 +821,6 @@
 			prevEnd = this.getSecondsFromColonTime($prevRow.find('td').eq(3).text());
 		} else {
 			// this is the first row
-			prevRowNum = null;
 			$prevRow = null;
 			prevKind = null;
 			prevStart = null;
@@ -839,7 +839,6 @@
 			nextEnd = this.getSecondsFromColonTime($nextRow.find('td').eq(3).text());
 		} else {
 			// this is the last row
-			nextRowNum = null;
 			$nextRow = null;
 			nextKind = null;
 			nextStart = null;
@@ -864,7 +863,7 @@
 				// start the new row immediately after the chapter start (not end)
 				start = (parseFloat(prevStart) + .001).toFixed(3);
 				// end the new row immediately before the next row starts
-				end = (nextStart) ? (parseFloat(nextStart) - .001).toFixed(3) : (parseFloat(start) + minDurartion[kind]).toFixed(3);
+				end = (nextStart) ? (parseFloat(nextStart) - .001).toFixed(3) : (parseFloat(start) + minDuration[kind]).toFixed(3);
 			} else if (prevKind === 'descriptions') {
 				// start the new row minDuration['descriptions'] after the description starts
 				// this will theoretically allow at least a small cushion for the description to be read
@@ -914,15 +913,15 @@
 		}
 
 		// Update all affected start/end times
-		$row.find('td').eq(2).text(this.formatSecondsAsColonTime(start,true));
-		$row.find('td').eq(3).text(this.formatSecondsAsColonTime(end,true));
+		$row.find('td').eq(2).text(this.formatTimestamp( this.formatSecondsAsColonTime(start,true)));
+		$row.find('td').eq(3).text(this.formatTimestamp( this.formatSecondsAsColonTime(end,true)));
 		if ($prevRow) {
-			$prevRow.find('td').eq(2).text(this.formatSecondsAsColonTime(prevStart,true));
-			$prevRow.find('td').eq(3).text(this.formatSecondsAsColonTime(prevEnd,true));
+			$prevRow.find('td').eq(2).text(this.formatTimestamp( this.formatSecondsAsColonTime(prevStart,true)));
+			$prevRow.find('td').eq(3).text(this.formatTimestamp( this.formatSecondsAsColonTime(prevEnd,true)));
 		}
 		if ($nextRow) {
-			$nextRow.find('td').eq(2).text(this.formatSecondsAsColonTime(nextStart,true));
-			$nextRow.find('td').eq(3).text(this.formatSecondsAsColonTime(nextEnd,true));
+			$nextRow.find('td').eq(2).text(this.formatTimestamp( this.formatSecondsAsColonTime(nextStart,true)));
+			$nextRow.find('td').eq(3).text(this.formatTimestamp( this.formatSecondsAsColonTime(nextEnd,true)));
 		}
 	};
 
@@ -1021,4 +1020,6 @@
 		$('#able-vts-output').append($heading,$p,$textarea);
 	};
 
-})(jQuery);
+}
+
+export default addVtsFunctions;

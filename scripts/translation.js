@@ -1,4 +1,50 @@
-(function ($) {
+import $ from 'jquery';
+import ca from '../translations/ca.json';
+import cs from '../translations/cs.json';
+import da from '../translations/da.json';
+import de from '../translations/de.json';
+import es from '../translations/es.json';
+import fr from '../translations/fr.json';
+import he from '../translations/he.json';
+import id from '../translations/id.json';
+import it from '../translations/it.json';
+import ja from '../translations/ja.json';
+import ms from '../translations/ms.json';
+import nb from '../translations/nb.json';
+import nl from '../translations/nl.json';
+import pl from '../translations/pl.json';
+import pt_br from '../translations/pt-br.json';
+import pt from '../translations/pt.json';
+import sk from '../translations/sk.json';
+import sv from '../translations/sv.json';
+import tr from '../translations/tr.json';
+import zh_tw from '../translations/zh-tw.json';
+import DOMPurify from 'dompurify';
+
+const moduleFromTag = {
+	ca,
+	cs,
+	da,
+	de,
+	es,
+	fr,
+	he,
+	id,
+	it,
+	ja,
+	ms,
+	nb,
+	nl,
+	pl,
+	pt,
+	'pt-BR': pt_br,
+	sk,
+	sv,
+	tr,
+	'zh-TW': zh_tw,
+}
+
+function addTranslationFunctions(AblePlayer) {
 	AblePlayer.prototype.getSupportedLangs = function() {
 		// returns an array of languages for which AblePlayer has translation tables
 		var langs = {
@@ -6,7 +52,6 @@
 			'cs'    : 'Czech',
 			'da'    : 'Danish',
 			'de'    : 'German',
-			'en'    : 'English',
 			'es'    : 'Spanish',
 			'fr'    : 'French',
 			'he'    : 'Hebrew',
@@ -18,10 +63,11 @@
 			'nl'    : 'Dutch',
 			'pl'    : 'Polish',
 			'pt'    : 'Portuguese',
-			'pt-br' : 'Brazilian Portuguese',
+			'pt-BR' : 'Brazilian Portuguese',
+			'sk'    : 'Slovak',
 			'sv'    : 'Swedish',
 			'tr'    : 'Turkish',
-			'zh-tw' : 'Chinese (Taiwan)'
+			'zh-TW' : 'Chinese (Taiwan)'
 		};
 
 		return langs;
@@ -37,10 +83,15 @@
 	 */
 	AblePlayer.prototype.translate = function( key, fallback, args = Array() ) {
 		let translation = '';
-		if ( this.tt[ key ] ) {
-			translation = this.tt[ key ];
+
+		if ( Object.hasOwn( this.options, 'text' ) && Object.hasOwn( this.options.text, key ) ) {
+			translation = this.options.text[key] !== '' ? this.options.text[key] : fallback;
 		} else {
-			translation = fallback;
+			if ( this.tt[ key ] ) {
+				translation = this.tt[ key ];
+			} else {
+				translation = fallback;
+			}
 		}
 		if ( args.length > 0 ) {
 			args.forEach( ( val, index ) => {
@@ -49,21 +100,19 @@
 			});
 		}
 
-		return translation;
+		return DOMPurify.sanitize(translation);
 	}
 
 	AblePlayer.prototype.getTranslationText = function() {
 
 		// determine language, then get labels and prompts from corresponding translation var
-		var deferred, thisObj, supportedLangs, docLang, translationFile, i,	similarLangFound;
-		deferred = new this.defer();
+		var thisObj, supportedLangs, docLang, similarLangFound;
 		thisObj = this;
 
 		supportedLangs = this.getSupportedLangs(); // returns an array
-
 		if (this.lang) { // a data-lang attribute is included on the media element
-			if ( Object.hasOwn( supportedLangs,this.lang ) ) {
-				// the specified language is not supported
+			if ( ! Object.hasOwn( supportedLangs,this.lang ) ) {
+				// the specified language code is not in the index
 				if ( this.lang.indexOf('-') == 2 ) {
 					// this is a localized lang attribute (e.g., fr-CA)
 					// try the parent language, given the first two characters
@@ -74,13 +123,14 @@
 					// but maybe there's a similar localized language supported
 					// that has the same parent?
 					similarLangFound = false;
-					for ( const [key,value] of Object.entries(supportedLangs) ) {
-						if ( key.substring(0,2) == this.lang ) {
-							this.lang = supportedLangs[i];
+					let thisLang = this.lang;
+					for ( const [key] of Object.entries(supportedLangs) ) {
+						if ( thisLang.substring(0,2) == key ) {
+							this.lang = key;
 							similarLangFound = true;
 						}
 					}
-					if ( !similarLangFound ) {
+					if ( ! similarLangFound ) {
 						// language requested via data-lang is not supported
 						this.lang = null;
 					}
@@ -88,7 +138,7 @@
 			}
 		}
 
-		if (!this.lang) {
+		if ( ! this.lang ) {
 			// try the language of the web page, if specified
 			if ($('body').attr('lang')) {
 				docLang = $('body').attr('lang').toLowerCase();
@@ -124,36 +174,17 @@
 		if (!this.searchLang) {
 			this.searchLang = this.lang;
 		}
-		translationFile = this.rootPath + 'translations/' + this.lang + '.json';
-		fetch(translationFile)
-			.then( response => {
-				return response.json();
-			})
-			.then( data => {
-				thisObj.tt = data;
-				thisObj.translationFiles = true;
-				deferred.resolve();
-			})
-			.catch( error => {
-				console.log( "Error: Translation files should be updated to JSON." + error,translationFile);
-				translationFile = thisObj.rootPath + 'translations/' + thisObj.lang + '.js';
-				fetch(translationFile)
-					.then( response => {
-						return response.json();
-					})
-					.then( data => {
-						thisObj.tt = data;
-						thisObj.translationFiles = true;
-						deferred.resolve();
-					})
-					.catch( error => {
-						console.log( "Error: Unable to load translation file:", translationFile);
-						thisObj.tt = {};
-						thisObj.translationFiles = false;
-						deferred.resolve();
-					});
-			});
-		return deferred.promise();
+		const ttModule = moduleFromTag[this.lang];
+		if ( !ttModule ) {
+			if ( ! this.lang == 'en' ) {
+				console.log( "Error: Unable to load translation module for language:", this.lang);
+			}
+			thisObj.tt = {};
+			thisObj.translationFiles = false;
+		} else {
+			thisObj.tt = ttModule;
+			thisObj.translationFiles = true;
+		}
 	};
 
 	AblePlayer.prototype.getSampleDescriptionText = function() {
@@ -165,25 +196,20 @@
 			// Create an array of sample description text in all languages
 			// This needs to be readily available for testing different voices
 			// in the Description Preferences dialog
-			var thisObj, supportedLangs, thisLang, translationFile, thisText, translation;
+			var supportedLangs, thisText, translation;
 
 			supportedLangs = this.getSupportedLangs();
-			thisObj = this;
 
 			this.sampleText = [];
-			for ( const [key,value] of Object.entries(supportedLangs) ) {
-				translationFile = this.rootPath + 'translations/' + key + '.json';
-				fetch(translationFile)
-					.then( response => {
-						return response.json();
-					})
-					.then( data => {
-						thisText = data.sampleDescriptionText;
-						translation = {'lang':thisLang, 'text': thisText};
-						thisObj.sampleText.push(translation);
-					});
+			for ( const [tag,name] of Object.entries(supportedLangs) ) {
+				const ttModule = moduleFromTag[tag];
+				thisText = ttModule.sampleDescriptionText;
+				translation = {'lang':name, 'text': thisText};
+				this.sampleText.push(translation);
 			}
 		}
 	};
 
-})(jQuery);
+}
+
+export default addTranslationFunctions;
