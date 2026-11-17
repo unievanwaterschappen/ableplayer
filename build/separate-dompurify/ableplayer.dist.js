@@ -5137,7 +5137,7 @@
 				iconData = this.getIconData( id );
 			}
 
-			var existingIcon = $button.find( 'svg#ableplayer-' + id );
+			var existingIcon = $button.find( 'svg.ableplayer-icon-' + id );
 			// Avoid repainting icon if there's no change.
 			if ( existingIcon.length > 0 ) {
 				return;
@@ -5158,7 +5158,7 @@
 			icon.setAttribute( 'focusable', 'false' );
 			icon.setAttribute( 'aria-hidden', 'true');
 			icon.setAttribute( 'viewBox', iconData[0] );
-			icon.setAttribute( 'id', 'ableplayer-' + id );
+			icon.setAttribute( 'class', 'ableplayer-icon-' + id );
 			let paths = iconData[1];
 			paths.forEach( function( pathData ) {
 				let path = getNode( 'path', { d: pathData } );

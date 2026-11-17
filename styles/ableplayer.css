@@ -176,7 +176,7 @@
 .able-pipe {
 	position: relative;
 	top: -2px;
-	color: var(--able-separator-color);
+	color: var(--able-light-gray);
 	margin: 0 6px;
 }
 
